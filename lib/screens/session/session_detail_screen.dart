@@ -1,0 +1,515 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:provider/provider.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
+import '../../models/session_model.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/session_provider.dart';
+import '../../providers/user_provider.dart';
+import '../../widgets/avatar_widget.dart';
+import '../../widgets/custom_button.dart';
+import '../chat/chat_room_screen.dart';
+import '../rating/rating_screen.dart';
+import 'package:intl/intl.dart';
+
+class SessionDetailScreen extends StatelessWidget {
+  final SessionModel session;
+
+  const SessionDetailScreen({super.key, required this.session});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final sessionProvider = context.watch<SessionProvider>();
+    final userProvider = context.watch<UserProvider>();
+    final currentUserId = auth.currentUser?.id ?? '';
+
+    // Get the latest session from provider
+    final latestSession =
+        sessionProvider.getSessionById(session.id) ?? session;
+
+    final isParticipant = latestSession.participantIds.contains(currentUserId);
+    final isCreator = latestSession.creatorId == currentUserId;
+    final isCompleted = latestSession.status == SessionStatus.completed;
+    final timeFormat = DateFormat('HH:mm');
+    final dateFormat = DateFormat('dd MMM yyyy');
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: CustomScrollView(
+        slivers: [
+          // Map header
+          SliverAppBar(
+            expandedHeight: 200,
+            pinned: true,
+            backgroundColor: AppColors.background,
+            leading: Padding(
+              padding: const EdgeInsets.all(8),
+              child: CircleAvatar(
+                backgroundColor: AppColors.surface.withValues(alpha: 0.9),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                      size: 16),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                children: [
+                  FlutterMap(
+                    options: MapOptions(
+                      initialCenter: latestSession.location,
+                      initialZoom: 16.0,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.none,
+                      ),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                        subdomains: const ['a', 'b', 'c', 'd'],
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: latestSession.location,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primary
+                                        .withValues(alpha: 0.5),
+                                    blurRadius: 10,
+                                  ),
+                                ],
+                              ),
+                              padding: const EdgeInsets.all(8),
+                              child: const Icon(
+                                Icons.restaurant_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          AppColors.background.withValues(alpha: 0.8),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Status badge
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(latestSession.status)
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          latestSession.statusText,
+                          style: AppTextStyles.labelMedium.copyWith(
+                            color:
+                                _getStatusColor(latestSession.status),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (latestSession.isPublic)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.info.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.public_rounded,
+                                  size: 12, color: AppColors.info),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Publik',
+                                style:
+                                    AppTextStyles.labelMedium.copyWith(
+                                  color: AppColors.info,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Title
+                  Text(latestSession.title,
+                      style: AppTextStyles.heading2),
+                  const SizedBox(height: 8),
+
+                  // Creator info
+                  Row(
+                    children: [
+                      AvatarWidget(
+                          name: latestSession.creatorName, size: 28),
+                      const SizedBox(width: 8),
+                      Text(
+                        'oleh ${latestSession.creatorName}',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Info cards
+                  _InfoRow(
+                    icon: Icons.restaurant_rounded,
+                    label: 'Tempat Makan',
+                    value: latestSession.restaurantName,
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    icon: Icons.location_on_rounded,
+                    label: 'Alamat',
+                    value: latestSession.restaurantAddress,
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    icon: Icons.access_time_rounded,
+                    label: 'Waktu',
+                    value:
+                        '${dateFormat.format(latestSession.startTime)} • ${timeFormat.format(latestSession.startTime)}',
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    icon: Icons.people_rounded,
+                    label: 'Peserta',
+                    value:
+                        '${latestSession.currentParticipants}/${latestSession.maxParticipants} orang',
+                  ),
+
+                  if (latestSession.description.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text('Deskripsi', style: AppTextStyles.labelLarge),
+                    const SizedBox(height: 8),
+                    Text(
+                      latestSession.description,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // Participants
+                  Text('Peserta', style: AppTextStyles.heading4),
+                  const SizedBox(height: 12),
+                  ...latestSession.participantIds.map((userId) {
+                    final user = userProvider.getUserById(userId);
+                    final isSessionCreator =
+                        userId == latestSession.creatorId;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSessionCreator
+                              ? AppColors.primary.withValues(alpha: 0.3)
+                              : AppColors.border,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          AvatarWidget(
+                            name: user?.name ?? 'Unknown',
+                            size: 36,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  user?.name ?? 'Unknown',
+                                  style: AppTextStyles.labelLarge,
+                                ),
+                                if (user != null)
+                                  Row(
+                                    children: [
+                                      Icon(Icons.star_rounded,
+                                          size: 14,
+                                          color: AppColors.accent),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        user.rating.toStringAsFixed(1),
+                                        style: AppTextStyles.caption
+                                            .copyWith(
+                                          color: AppColors.accent,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (isSessionCreator)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'Host',
+                                style:
+                                    AppTextStyles.caption.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+
+                  // Available seats indicator
+                  if (latestSession.availableSeats > 0 &&
+                      latestSession.status == SessionStatus.open) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.border,
+                          style: BorderStyle.solid,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.event_seat_rounded,
+                              size: 16,
+                              color: AppColors.textTertiary),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${latestSession.availableSeats} kursi tersedia',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 32),
+
+                  // Action buttons
+                  if (isParticipant && !isCompleted) ...[
+                    CustomButton(
+                      text: 'Buka Chat Grup 💬',
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ChatRoomScreen(session: latestSession),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    if (!isCreator)
+                      CustomButton(
+                        text: 'Keluar dari Sesi',
+                        isOutlined: true,
+                        onPressed: () {
+                          sessionProvider.leaveSession(
+                            latestSession.id,
+                            currentUserId,
+                          );
+                          Navigator.pop(context);
+                        },
+                      ),
+                    if (isCreator) ...[
+                      CustomButton(
+                        text: 'Selesaikan Sesi ✅',
+                        isOutlined: true,
+                        backgroundColor: AppColors.success,
+                        textColor: AppColors.success,
+                        onPressed: () {
+                          sessionProvider.updateSessionStatus(
+                            latestSession.id,
+                            SessionStatus.completed,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CustomButton(
+                        text: 'Batalkan Sesi',
+                        isOutlined: true,
+                        backgroundColor: AppColors.error,
+                        textColor: AppColors.error,
+                        onPressed: () {
+                          sessionProvider.cancelSession(latestSession.id);
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ],
+                  ] else if (!isParticipant &&
+                      !latestSession.isFull &&
+                      latestSession.status == SessionStatus.open) ...[
+                    CustomButton(
+                      text: 'Gabung Sesi 🙌',
+                      onPressed: () {
+                        sessionProvider.joinSession(
+                            latestSession.id, currentUserId);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                                'Berhasil bergabung! 🎉'),
+                            backgroundColor: AppColors.success,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ] else if (isCompleted && isParticipant) ...[
+                    CustomButton(
+                      text: 'Beri Rating Peserta ⭐',
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                RatingScreen(session: latestSession),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(SessionStatus status) {
+    switch (status) {
+      case SessionStatus.open:
+        return AppColors.success;
+      case SessionStatus.ongoing:
+        return AppColors.info;
+      case SessionStatus.completed:
+        return AppColors.accent;
+      case SessionStatus.cancelled:
+        return AppColors.error;
+    }
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 18, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTextStyles.caption,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: AppTextStyles.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
