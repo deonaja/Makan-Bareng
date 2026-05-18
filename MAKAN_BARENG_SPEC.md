@@ -1,6 +1,6 @@
 # MakanBareng — Project Specification
 
-> **Versi**: 1.3 — 18 Mei 2026
+> **Versi**: 1.4 — 18 Mei 2026
 > **Status**: Final draft, siap dipakai tim
 > **Maintainer**: Deon (Backend Lead)
 
@@ -47,9 +47,15 @@ Aplikasi ini adalah tugas besar mata kuliah **Aplikasi Perangkat Bergerak (CBK3G
 ### Backend (Firebase)
 - **Firebase Auth** — registrasi & login (email/password + Google Sign-In)
 - **Cloud Firestore** — database utama (NoSQL)
-- **Firebase Storage** — upload foto profil & foto sesi
 - **Firebase Hosting** — deploy web admin dashboard
 - **Firebase Cloud Messaging (FCM)** — **OPSIONAL**, tergantung keputusan tim (lihat catatan di bawah)
+
+### Foto Profil & Gambar (tanpa Firebase Storage)
+- **Google Sign-In user**: otomatis pakai `photoURL` dari akun Google mereka
+- **Email/Password user**: pakai avatar auto-generated dari URL `https://ui-avatars.com/api/?name=NAMA+USER&background=random` — gratis, tanpa upload
+- **Foto cover sesi**: skip, pakai placeholder image atau tanpa foto
+- **Foto restaurant (admin)**: simpan sebagai URL eksternal (misal link Google Maps photo), bukan upload file
+- **Alasan**: Firebase Storage butuh Blaze plan (kartu kredit). Untuk tugas besar, placeholder + Google photo URL sudah cukup.
 
 ### Map & Lokasi
 - **`flutter_map` + OpenStreetMap (CartoDB Dark theme)** — **JANGAN ganti ke Google Maps**
@@ -146,7 +152,6 @@ lib/
 │   ├── chat_service.dart      # send & stream messages
 │   ├── restaurant_service.dart # CRUD restaurants (untuk admin)
 │   ├── review_service.dart    # submit & ambil review
-│   ├── storage_service.dart   # upload foto profil & foto sesi
 │   └── notification_service.dart # local notification handler
 │
 ├── providers/                 # state management, sudah ada
@@ -201,7 +206,7 @@ Beberapa keputusan kecil yang aku ambil sendiri di batch ini, untuk transparansi
 1. **`data/mock_data.dart` tetap ada sementara**, dihapus belakangan. Alasan: biar fitur tetap bisa di-test waktu Firebase belum 100% siap.
 2. **Bahasa code = Inggris, bahasa UI = Indonesia.** Kalau tim mau code juga pakai Indonesia, bilang aja.
 3. **Admin pakai Flutter Web (opsi C)** di codebase yang sama, dengan check `isAdmin` di Firestore. Route admin di-guard supaya cuma admin yang bisa akses.
-4. **`storage_service.dart` dan `notification_service.dart`** sengaja aku spesifikkan biar nggak nyangkut di service lain.
+4. **`notification_service.dart`** sengaja aku spesifikkan biar nggak nyangkut di service lain.
 5. **Folder `screens/admin/`** baru ditambah. Sub-foldernya nanti aku detail di batch berikutnya.
 
 Kalau ada yang nggak sreg, bilang sekarang sebelum aku lanjut ke Batch 2 (Data Model).
@@ -256,7 +261,9 @@ users/{userId}
 ├── uid: string                    // sama dengan document ID
 ├── name: string                   // "Deon Aja"
 ├── email: string                  // "deon@gmail.com"
-├── photoUrl: string               // URL ke Storage, atau "" kalau belum upload
+├── photoUrl: string               // URL foto. Untuk Google user: dari Google account.
+│                                  // Untuk email user: auto-generated "https://ui-avatars.com/api/?name=NAMA"
+│                                  // JANGAN upload file, Firebase Storage tidak dipakai.
 ├── bio: string                    // "Suka makan pedes", default ""
 ├── foodPreferences: array<string> // ["nasi padang", "ramen", "bakso"], free text dari user, default []
 ├── isAdmin: boolean               // default false. Set manual di Console untuk admin
@@ -331,7 +338,7 @@ sessions/{sessionId}
 │
 ├── // === STATUS ===
 ├── status: string                 // "open" | "full" | "ongoing" | "completed" | "canceled"
-├── coverImageUrl: string          // URL foto sesi di Storage, "" kalau tidak ada
+├── coverImageUrl: string          // URL placeholder atau kosong "". JANGAN upload file.
 │
 ├── // === TIMESTAMP ===
 ├── createdAt: timestamp           // server timestamp saat sesi dibuat
@@ -1084,7 +1091,6 @@ class SessionService {
 | `session_service.dart` | (lihat 8.2) |
 | `chat_service.dart` | `sendMessage`, `streamMessages`, `markAsRead` |
 | `review_service.dart` | `submitReview`, `streamReviewsForUser`, `streamReviewsForSession` |
-| `storage_service.dart` | `uploadProfilePhoto`, `uploadSessionCover`, `deleteFile` |
 | `restaurant_service.dart` | `createRestaurant`, `streamRestaurants`, `updateRestaurant`, `deleteRestaurant` (untuk admin) |
 | `notification_service.dart` | `init`, `showLocalNotification`, `subscribeToSessionUpdates` |
 
@@ -1109,7 +1115,6 @@ Tidak semua service perlu di-wrap provider. Aturan:
 | `chat_service` | ✅ `ChatProvider` | Stream messages dipakai di chat screen |
 | `review_service` | ❌ langsung dari widget | One-shot submit, baca review one-time |
 | `restaurant_service` | ❌ langsung dari widget | Admin one-shot CRUD |
-| `storage_service` | ❌ langsung dari widget | Upload file = one-shot operation |
 | `notification_service` | ❌ langsung di `main.dart` | Setup global, bukan state |
 
 **Contoh pakai service langsung dari widget**:
@@ -1320,46 +1325,9 @@ service cloud.firestore {
 }
 ```
 
-### 9.3 Security Rules untuk Firebase Storage
+### 9.3 Catatan: Firebase Storage TIDAK dipakai
 
-Selain Firestore, Storage juga butuh rules sendiri. Copy ke **Firebase Console → Storage → Rules**:
-
-```javascript
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    
-    // Foto profil: /users/{userId}/profile.jpg
-    // - Semua user login bisa baca
-    // - User cuma boleh upload foto sendiri
-    // - Max 5MB
-    match /users/{userId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null 
-                   && request.auth.uid == userId
-                   && request.resource.size < 5 * 1024 * 1024;
-    }
-    
-    // Foto cover sesi: /sessions/{sessionId}/cover.jpg
-    // - Semua user login bisa baca
-    // - Yang upload harus authenticated (validation host = cek di service)
-    // - Max 5MB
-    match /sessions/{sessionId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null 
-                   && request.resource.size < 5 * 1024 * 1024;
-    }
-    
-    // Foto restaurant: /restaurants/{restaurantId}/photo.jpg
-    // - Semua user login bisa baca, cuma admin yang upload
-    match /restaurants/{restaurantId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null 
-                   && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-    }
-  }
-}
-```
+Firebase Storage butuh Blaze plan (kartu kredit). Project ini **tidak menggunakan Storage**. Foto profil pakai auto-generated avatar URL (lihat Section 11.3). Jadi **tidak ada Storage Rules yang perlu di-publish**.
 
 ### 9.4 Testing Security Rules
 
@@ -1547,35 +1515,31 @@ FutureBuilder<SessionModel?>(
 )
 ```
 
-### 11.3 Upload file ke Storage + dapat URL
+### 11.3 Foto profil tanpa Firebase Storage
+
+Karena Firebase Storage butuh Blaze plan, kita pakai alternatif gratis:
 
 ```dart
-// Di storage_service.dart
-Future<String> uploadProfilePhoto({
-  required String userId,
-  required File file,
-}) async {
-  try {
-    final ref = FirebaseStorage.instance
-        .ref()
-        .child('users/$userId/profile.jpg');
-    
-    await ref.putFile(file);
-    final url = await ref.getDownloadURL();
-    return url;
-  } catch (e) {
-    throw Exception('Gagal upload foto: $e');
-  }
+// Helper function untuk generate avatar URL
+String getAvatarUrl(String name) {
+  final encoded = Uri.encodeComponent(name);
+  return 'https://ui-avatars.com/api/?name=$encoded&background=random&size=200';
 }
 
-// Di widget
-final url = await StorageService().uploadProfilePhoto(
-  userId: currentUserId,
-  file: selectedFile,
+// Saat register email/password — set photoUrl otomatis
+await UserService().createUserProfile(
+  uid: credential.user!.uid,
+  name: name,
+  email: email,
+  photoUrl: getAvatarUrl(name),  // auto-generated avatar
 );
-// Lalu update profil dengan url ini
-await UserService().updateProfile(userId: currentUserId, photoUrl: url);
+
+// Saat Google Sign-In — pakai foto dari Google account
+final googleUser = await GoogleSignIn().signIn();
+final photoUrl = googleUser?.photoUrl ?? getAvatarUrl(googleUser?.displayName ?? 'User');
 ```
+
+**Aturan**: field `photoUrl` di Firestore SELALU berisi URL valid (bukan kosong). Kalau user belum punya foto, isi dengan auto-generated avatar URL.
 
 ### 11.4 Show error/success dengan SnackBar
 
@@ -1813,19 +1777,18 @@ Ringkasan aturan keras yang harus diikuti AI maupun manusia. **Section paling pe
 **TODO: isi setelah Firebase project dibuat oleh Deon.**
 
 ```
-Project Name        : makan-bareng-apb-2026 (atau yang serupa)
-Project ID          : <isi setelah create>
-Region              : asia-southeast2 (Jakarta) — pilih ini untuk latency rendah
+Project Name        : Makan Bareng
+Project ID          : makan-bareng
+Region              : asia-southeast2 (Jakarta)
 Plan                : Spark (Free)
 
-Firebase Console    : https://console.firebase.google.com/project/<PROJECT_ID>
-Hosting URL (admin) : https://<PROJECT_ID>.web.app
+Firebase Console    : https://console.firebase.google.com/u/0/project/makan-bareng
+Hosting URL (admin) : https://makan-bareng.web.app (setup nanti)
 
 Akses Console (member dengan permission Editor):
 - Deon (Backend Lead)         — deon@email.com
 - Saladin Setyo H             — saladin@email.com
 - Muhammad Ihsan P            — ihsan@email.com  (butuh akses untuk web admin)
-- Made Naradeon HP            — (opsional, untuk lihat logs)
 - Naemu Enggar M              — (opsional)
 - Revandi Akbar               — (opsional)
 
@@ -1855,20 +1818,21 @@ JANGAN commit:
 2. Enable services yang dibutuhkan:
    - Authentication → Sign-in method → Email/Password ENABLED, Google ENABLED
    - Firestore Database → Create database → Production mode → asia-southeast2
-   - Storage → Get started → Production mode → asia-southeast2
+   - Storage → **SKIP, butuh Blaze plan. Tidak dipakai.**
    - Hosting → (setup nanti pas mau deploy admin web)
 
 3. Setup Flutter:
    - Install FlutterFire CLI: `dart pub global activate flutterfire_cli`
    - Login Firebase: `firebase login`
-   - Configure: `flutterfire configure --project=<PROJECT_ID>`
+   - Configure: `flutterfire configure --project=makan-bareng`
    - Tambah dependency. Jalankan command ini di terminal (jangan tulis `^latest`):
      ```
-     flutter pub add firebase_core firebase_auth cloud_firestore firebase_storage
+     flutter pub add firebase_core firebase_auth cloud_firestore
      flutter pub add google_sign_in
      flutter pub add flutter_local_notifications
      ```
    - Command di atas otomatis nambahin versi terbaru ke `pubspec.yaml` dengan format `^X.Y.Z`.
+   - **JANGAN install `firebase_storage`** — tidak dipakai di project ini.
 
 4. Initialize di main.dart:
    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -1963,7 +1927,7 @@ Kalau ada yang nggak sesuai, perbaiki sekarang.
 **Ihsan (Profil + Admin)**:
 1. Implement `user_service.dart` (CRUD profil)
 2. Update `user_provider.dart`
-3. Halaman edit profil: pakai `user_service.updateProfile()` + `storage_service.uploadProfilePhoto()`
+3. Halaman edit profil: pakai `user_service.updateProfile()` (foto pakai auto-generated avatar URL, bukan upload — lihat Section 11.3)
 4. **Admin dashboard** (Flutter Web): 
    - Setup route `/admin` di main.dart, guard dengan check `isAdmin`
    - Halaman: list users, list sessions, CRUD restaurants
@@ -2024,7 +1988,7 @@ Setiap orang punya file-file yang **eksklusif** mereka edit. Anggota lain JANGAN
 | **Naemu** | `services/chat_service.dart`, `providers/chat_provider.dart`, `services/notification_service.dart`, `screens/session/create_session_screen.dart`, `screens/chat/*`, `screens/history/*` |
 | **Ihsan** | `services/user_service.dart`, `services/restaurant_service.dart`, `providers/user_provider.dart`, `screens/profile/*`, `screens/admin/*` |
 | **Revandi** | `services/review_service.dart`, `screens/rating/*`, folder `test/*` |
-| **Deon** | `services/storage_service.dart`, file dokumentasi (`*.md`), Security Rules |
+| **Deon** | file dokumentasi (`*.md`), Security Rules, `core/*` |
 
 **Catatan penting**: Naemu pakai `session_service.dart` (panggil method dari widget/screen-nya) tapi **tidak edit file service-nya**. Kalau Naemu butuh method baru di session_service yang belum ada, request ke Made via WA — Made yang implement, bukan Naemu tambahin sendiri.
 
@@ -2546,4 +2510,4 @@ Target: dalam 2 minggu, aplikasi end-to-end dengan backend asli (bukan mock), si
   - Fix bug teknis di Section 11.7: ganti `Future.asStream()` (cuma 1 emit) jadi `Stream.snapshots()` dari Firestore (proper realtime listener). Tambah method `streamSessionById` ke SessionService.
   - Fix layout Penutup yang hilang heading-nya
   - Fix konflik wilayah `session_service.dart`: SELURUH method jadi tanggung jawab Made, Naemu hanya consumer (panggil dari widget/screen, tidak edit service-nya)
-  - Fix `pubspec.yaml` instruksi: ganti `^latest` (invalid syntax) jadi `flutter pub add` commands.
+- v1.4 (18 Mei 2026): Hapus Firebase Storage (butuh Blaze plan). Foto profil pakai auto-generated avatar URL + Google photo URL. Hapus `storage_service.dart`. Update Section 2, 4, 5, 8, 9, 11, 13, 14, 15. Update project info dengan data real (project ID: `makan-bareng`).
