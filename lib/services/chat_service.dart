@@ -12,15 +12,19 @@ class ChatService {
   static final ChatService _instance = ChatService._internal();
   factory ChatService() => _instance;
   ChatService._internal();
+  bool _isFirebaseValidated = false;
 
   FirebaseFirestore get _firestore {
     _ensureFirebaseInitialized();
     return FirebaseFirestore.instance;
   }
 
-  static void _ensureFirebaseInitialized() {
+  void _ensureFirebaseInitialized() {
+    if (_isFirebaseValidated) return;
+
     try {
       Firebase.app();
+      _isFirebaseValidated = true;
     } on FirebaseException catch (_) {
       throw StateError(
         'Firebase belum diinisialisasi. Panggil Firebase.initializeApp() di main() sebelum runApp().',
