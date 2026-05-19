@@ -13,15 +13,19 @@ class ChatService {
   factory ChatService() => _instance;
   ChatService._internal();
 
-  final FirebaseFirestore _firestore = _requireFirestore();
+  FirebaseFirestore get _firestore {
+    _ensureFirebaseInitialized();
+    return FirebaseFirestore.instance;
+  }
 
-  static FirebaseFirestore _requireFirestore() {
-    if (Firebase.apps.isEmpty) {
+  static void _ensureFirebaseInitialized() {
+    try {
+      Firebase.app();
+    } on FirebaseException catch (_) {
       throw StateError(
         'Firebase belum diinisialisasi. Panggil Firebase.initializeApp() di main() sebelum runApp().',
       );
     }
-    return FirebaseFirestore.instance;
   }
 
   /// Helper: reference ke subcollection messages di bawah session tertentu
