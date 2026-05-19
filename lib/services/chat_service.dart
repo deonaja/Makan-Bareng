@@ -25,9 +25,9 @@ class ChatService {
     try {
       Firebase.app();
       _isFirebaseValidated = true;
-    } catch (_) {
+    } catch (e) {
       throw StateError(
-        'Firebase belum diinisialisasi. Panggil Firebase.initializeApp() di main() sebelum runApp().',
+        'Firebase belum diinisialisasi. Panggil Firebase.initializeApp() di main() sebelum runApp(). Detail: $e',
       );
     }
   }
