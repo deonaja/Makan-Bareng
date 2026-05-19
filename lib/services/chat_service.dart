@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../models/chat_message_model.dart';
 
 /// Service untuk chat messages via Firestore subcollection
@@ -12,7 +13,16 @@ class ChatService {
   factory ChatService() => _instance;
   ChatService._internal();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = _requireFirestore();
+
+  static FirebaseFirestore _requireFirestore() {
+    if (Firebase.apps.isEmpty) {
+      throw StateError(
+        'Firebase belum diinisialisasi. Panggil Firebase.initializeApp() di main() sebelum runApp().',
+      );
+    }
+    return FirebaseFirestore.instance;
+  }
 
   /// Helper: reference ke subcollection messages di bawah session tertentu
   CollectionReference _messagesRef(String sessionId) =>
