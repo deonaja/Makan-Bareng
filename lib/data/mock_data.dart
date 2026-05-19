@@ -238,91 +238,83 @@ class MockData {
   ];
 
   // ============ CHAT MESSAGES ============
+  // Catatan: mock data sementara. Nanti diganti Firestore subcollection.
+  // Field names sudah sesuai SPEC Section 5.5.
   static final List<ChatMessageModel> chatMessages = [
     // Session 1 chats
     ChatMessageModel(
-      id: 'msg_1',
-      sessionId: 'session_1',
+      messageId: 'msg_1',
       senderId: 'user_1',
       senderName: 'Made Naradeon',
-      message: 'Halo! Siapa yang mau ikut makan siang?',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 50)),
+      text: 'Halo! Siapa yang mau ikut makan siang?',
+      sentAt: DateTime.now().subtract(const Duration(minutes: 50)),
     ),
     ChatMessageModel(
-      id: 'msg_2',
-      sessionId: 'session_1',
+      messageId: 'msg_2',
       senderId: 'user_2',
       senderName: 'Revandi Akbar',
-      message: 'Gue mau! Jam berapa ketemuan?',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 45)),
+      text: 'Gue mau! Jam berapa ketemuan?',
+      sentAt: DateTime.now().subtract(const Duration(minutes: 45)),
     ),
     ChatMessageModel(
-      id: 'msg_3',
-      sessionId: 'session_1',
+      messageId: 'msg_3',
       senderId: 'user_1',
       senderName: 'Made Naradeon',
-      message: 'Jam 12 ya, di depan gerbang utama aja ketemunya',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 40)),
+      text: 'Jam 12 ya, di depan gerbang utama aja ketemunya',
+      sentAt: DateTime.now().subtract(const Duration(minutes: 40)),
     ),
     ChatMessageModel(
-      id: 'msg_4',
-      sessionId: 'session_1',
+      messageId: 'msg_4',
       senderId: 'user_2',
       senderName: 'Revandi Akbar',
-      message: 'Oke siap! 👍',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 38)),
+      text: 'Oke siap! 👍',
+      sentAt: DateTime.now().subtract(const Duration(minutes: 38)),
     ),
 
     // Session 3 chats
     ChatMessageModel(
-      id: 'msg_5',
-      sessionId: 'session_3',
+      messageId: 'msg_5',
       senderId: 'user_3',
       senderName: 'Naemu Enggar',
-      message: 'Geprek level berapa nih?',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 100)),
+      text: 'Geprek level berapa nih?',
+      sentAt: DateTime.now().subtract(const Duration(minutes: 100)),
     ),
     ChatMessageModel(
-      id: 'msg_6',
-      sessionId: 'session_3',
+      messageId: 'msg_6',
       senderId: 'user_4',
       senderName: 'Muhammad Ihsan',
-      message: 'Level 3 aja deh, takut sakit perut 😂',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 95)),
+      text: 'Level 3 aja deh, takut sakit perut 😂',
+      sentAt: DateTime.now().subtract(const Duration(minutes: 95)),
     ),
     ChatMessageModel(
-      id: 'msg_7',
-      sessionId: 'session_3',
+      messageId: 'msg_7',
       senderId: 'user_2',
       senderName: 'Revandi Akbar',
-      message: 'Gue level 5 sih, challenge!',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 90)),
+      text: 'Gue level 5 sih, challenge!',
+      sentAt: DateTime.now().subtract(const Duration(minutes: 90)),
     ),
     ChatMessageModel(
-      id: 'msg_8',
-      sessionId: 'session_3',
+      messageId: 'msg_8',
       senderId: 'user_3',
       senderName: 'Naemu Enggar',
-      message: 'Wkwk santai aja, masing-masing pilih level sendiri',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 85)),
+      text: 'Wkwk santai aja, masing-masing pilih level sendiri',
+      sentAt: DateTime.now().subtract(const Duration(minutes: 85)),
     ),
 
     // Session 5 chats
     ChatMessageModel(
-      id: 'msg_9',
-      sessionId: 'session_5',
+      messageId: 'msg_9',
       senderId: 'user_4',
       senderName: 'Muhammad Ihsan',
-      message: 'Di Mie Gacoan yang di Bojongsoang ya',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
+      text: 'Di Mie Gacoan yang di Bojongsoang ya',
+      sentAt: DateTime.now().subtract(const Duration(minutes: 30)),
     ),
     ChatMessageModel(
-      id: 'msg_10',
-      sessionId: 'session_5',
+      messageId: 'msg_10',
       senderId: 'user_3',
       senderName: 'Naemu Enggar',
-      message: 'Oke, gue otw jam 5 sore nanti',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 25)),
+      text: 'Oke, gue otw jam 5 sore nanti',
+      sentAt: DateTime.now().subtract(const Duration(minutes: 25)),
     ),
   ];
 

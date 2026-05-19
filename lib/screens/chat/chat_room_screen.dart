@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../models/chat_message_model.dart';
 import '../../models/session_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../services/chat_service.dart';
 import '../../widgets/avatar_widget.dart';
 import 'package:intl/intl.dart';
 
@@ -25,10 +27,19 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
+      // Subscribe ke stream messages via provider
       final chatProvider = context.read<ChatProvider>();
+      chatProvider.subscribeToMessages(widget.session.id);
+
+      // Mark semua pesan sebagai sudah dibaca
       final auth = context.read<AuthProvider>();
-      chatProvider.markAsRead(widget.session.id, auth.currentUser?.id ?? '');
+      final currentUserId = auth.currentUser?.id ?? '';
+      if (currentUserId.isNotEmpty) {
+        chatProvider.markAllAsRead(
+          sessionId: widget.session.id,
+          userId: currentUserId,
+        );
+      }
     });
   }
 
@@ -46,32 +57,47 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    // Unsubscribe saat keluar chat room
+    context.read<ChatProvider>().unsubscribeFromMessages(widget.session.id);
     super.dispose();
   }
 
-  void _sendMessage() {
+  /// Kirim pesan via ChatService (Section 8.5: one-shot operation)
+  void _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
     final auth = context.read<AuthProvider>();
-    final chatProvider = context.read<ChatProvider>();
-
-    chatProvider.sendMessage(
-      sessionId: widget.session.id,
-      senderId: auth.currentUser!.id,
-      senderName: auth.currentUser!.name,
-      message: text,
-    );
+    final currentUser = auth.currentUser;
+    if (currentUser == null) return;
 
     _messageController.clear();
-    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+
+    try {
+      await ChatService().sendMessage(
+        sessionId: widget.session.id,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        senderPhotoUrl: currentUser.photoUrl,
+        text: text,
+      );
+      // Stream auto-update, scroll ke bawah
+      Future.delayed(const Duration(milliseconds: 200), _scrollToBottom);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final chatProvider = context.watch<ChatProvider>();
-    final messages = chatProvider.getMessagesBySession(widget.session.id);
     final currentUserId = auth.currentUser?.id ?? '';
 
     return Scaffold(
@@ -122,10 +148,22 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       ),
       body: Column(
         children: [
-          // Messages
+          // Messages — StreamBuilder untuk realtime (Section 11.1)
           Expanded(
-            child: messages.isEmpty
-                ? Center(
+            child: StreamBuilder<List<ChatMessageModel>>(
+              stream: ChatService().streamMessages(widget.session.id),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error: ${snapshot.error}'),
+                  );
+                }
+                final messages = snapshot.data ?? [];
+                if (messages.isEmpty) {
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -144,121 +182,157 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                         ),
                       ],
                     ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final message = messages[index];
-                      final isMe = message.senderId == currentUserId;
-                      final showAvatar = index == 0 ||
-                          messages[index - 1].senderId !=
-                              message.senderId;
-                      final timeFormat = DateFormat('HH:mm');
+                  );
+                }
 
+                // Auto-scroll saat pesan baru masuk
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _scrollToBottom();
+                });
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    final isMe = message.senderId == currentUserId;
+                    final isSystem = message.type == 'system';
+                    final showAvatar = index == 0 ||
+                        messages[index - 1].senderId !=
+                            message.senderId;
+                    final timeFormat = DateFormat('HH:mm');
+
+                    // Pesan system ditampilkan di tengah
+                    if (isSystem) {
                       return Padding(
-                        padding: EdgeInsets.only(
-                          top: showAvatar ? 12 : 2,
-                          bottom: 2,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: isMe
-                              ? MainAxisAlignment.end
-                              : MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            if (!isMe && showAvatar)
-                              AvatarWidget(
-                                name: message.senderName,
-                                size: 28,
-                              )
-                            else if (!isMe)
-                              const SizedBox(width: 28),
-                            if (!isMe) const SizedBox(width: 8),
-                            Flexible(
-                              child: Column(
-                                crossAxisAlignment: isMe
-                                    ? CrossAxisAlignment.end
-                                    : CrossAxisAlignment.start,
-                                children: [
-                                  if (!isMe && showAvatar)
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 4),
-                                      child: Text(
-                                        message.senderName,
-                                        style: AppTextStyles.caption
-                                            .copyWith(
-                                          color: AppColors.primary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isMe
-                                          ? AppColors.primary
-                                          : AppColors.surface,
-                                      borderRadius: BorderRadius.only(
-                                        topLeft:
-                                            const Radius.circular(16),
-                                        topRight:
-                                            const Radius.circular(16),
-                                        bottomLeft: Radius.circular(
-                                            isMe ? 16 : 4),
-                                        bottomRight: Radius.circular(
-                                            isMe ? 4 : 16),
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black
-                                              .withValues(alpha: 0.1),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          message.message,
-                                          style: AppTextStyles.bodyMedium
-                                              .copyWith(
-                                            color: isMe
-                                                ? Colors.white
-                                                : AppColors.textPrimary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          timeFormat
-                                              .format(message.timestamp),
-                                          style: AppTextStyles.caption
-                                              .copyWith(
-                                            color: isMe
-                                                ? Colors.white70
-                                                : AppColors.textTertiary,
-                                            fontSize: 9,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              message.text,
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.textTertiary,
+                                fontStyle: FontStyle.italic,
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       );
-                    },
-                  ),
+                    }
+
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        top: showAvatar ? 12 : 2,
+                        bottom: 2,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: isMe
+                            ? MainAxisAlignment.end
+                            : MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (!isMe && showAvatar)
+                            AvatarWidget(
+                              name: message.senderName,
+                              size: 28,
+                            )
+                          else if (!isMe)
+                            const SizedBox(width: 28),
+                          if (!isMe) const SizedBox(width: 8),
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: isMe
+                                  ? CrossAxisAlignment.end
+                                  : CrossAxisAlignment.start,
+                              children: [
+                                if (!isMe && showAvatar)
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      message.senderName,
+                                      style: AppTextStyles.caption
+                                          .copyWith(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isMe
+                                        ? AppColors.primary
+                                        : AppColors.surface,
+                                    borderRadius: BorderRadius.only(
+                                      topLeft:
+                                          const Radius.circular(16),
+                                      topRight:
+                                          const Radius.circular(16),
+                                      bottomLeft: Radius.circular(
+                                          isMe ? 16 : 4),
+                                      bottomRight: Radius.circular(
+                                          isMe ? 4 : 16),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.1),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        message.text,
+                                        style: AppTextStyles.bodyMedium
+                                            .copyWith(
+                                          color: isMe
+                                              ? Colors.white
+                                              : AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        timeFormat
+                                            .format(message.sentAt),
+                                        style: AppTextStyles.caption
+                                            .copyWith(
+                                          color: isMe
+                                              ? Colors.white70
+                                              : AppColors.textTertiary,
+                                          fontSize: 9,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
 
           // Input area
