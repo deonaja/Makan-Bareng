@@ -1,105 +1,174 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/session_model.dart';
-import '../data/mock_data.dart';
+import '../services/session_service.dart';
 
 class SessionProvider extends ChangeNotifier {
-  List<SessionModel> _sessions = [];
-  final bool _isLoading = false;
+  final SessionService _service = SessionService();
 
-  List<SessionModel> get sessions => _sessions;
+  List<SessionModel> _activeSessions = [];
+  List<SessionModel> _userSessions = [];
+  bool _isLoading = false;
+  String? _error;
+
+  StreamSubscription<List<SessionModel>>? _activeSessionsSub;
+  StreamSubscription<List<SessionModel>>? _userSessionsSub;
+
+  List<SessionModel> get activeSessions => _activeSessions;
+  List<SessionModel> get userSessions => _userSessions;
   bool get isLoading => _isLoading;
+  String? get error => _error;
 
-  List<SessionModel> get activeSessions =>
-      _sessions.where((s) => s.status == SessionStatus.open).toList();
-
-  List<SessionModel> get ongoingSessions =>
-      _sessions.where((s) => s.status == SessionStatus.ongoing).toList();
-
-  List<SessionModel> get completedSessions =>
-      _sessions.where((s) => s.status == SessionStatus.completed).toList();
-
-  SessionProvider() {
-    loadSessions();
+  void listenActiveSessions() {
+    _activeSessionsSub?.cancel();
+    _activeSessionsSub = _service.streamActiveSessions().listen(
+      (sessions) {
+        _activeSessions = sessions;
+        notifyListeners();
+      },
+      onError: (e) {
+        _error = e.toString();
+        notifyListeners();
+      },
+    );
   }
 
-  void loadSessions() {
-    _sessions = List.from(MockData.sessions);
+  void listenUserSessions(String userId) {
+    _userSessionsSub?.cancel();
+    _userSessionsSub = _service.streamUserSessions(userId).listen(
+      (sessions) {
+        _userSessions = sessions;
+        notifyListeners();
+      },
+      onError: (e) {
+        _error = e.toString();
+        notifyListeners();
+      },
+    );
+  }
+
+  Future<String?> createSession({
+    required String title,
+    required String description,
+    required String hostId,
+    required String hostName,
+    required String hostPhotoUrl,
+    required String locationName,
+    required String locationAddress,
+    required double locationLatitude,
+    required double locationLongitude,
+    required DateTime scheduledAt,
+    required int maxParticipants,
+    int durationMinutes = 60,
+    String coverImageUrl = '',
+  }) async {
+    _isLoading = true;
+    _error = null;
     notifyListeners();
+
+    try {
+      final sessionId = await _service.createSession(
+        title: title,
+        description: description,
+        hostId: hostId,
+        hostName: hostName,
+        hostPhotoUrl: hostPhotoUrl,
+        locationName: locationName,
+        locationAddress: locationAddress,
+        locationLatitude: locationLatitude,
+        locationLongitude: locationLongitude,
+        scheduledAt: scheduledAt,
+        maxParticipants: maxParticipants,
+        durationMinutes: durationMinutes,
+        coverImageUrl: coverImageUrl,
+      );
+      return sessionId;
+    } catch (e) {
+      _error = e.toString();
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  List<SessionModel> getSessionsByUser(String userId) {
-    return _sessions
-        .where((s) =>
-            s.creatorId == userId || s.participantIds.contains(userId))
-        .toList();
+  Future<bool> joinSession({
+    required String sessionId,
+    required String userId,
+  }) async {
+    try {
+      await _service.joinSession(sessionId: sessionId, userId: userId);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
   }
 
-  List<SessionModel> getCreatedByUser(String userId) {
-    return _sessions.where((s) => s.creatorId == userId).toList();
+  Future<bool> leaveSession({
+    required String sessionId,
+    required String userId,
+  }) async {
+    try {
+      await _service.leaveSession(sessionId: sessionId, userId: userId);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
   }
 
-  List<SessionModel> getJoinedByUser(String userId) {
-    return _sessions
-        .where((s) =>
-            s.creatorId != userId && s.participantIds.contains(userId))
-        .toList();
+  Future<bool> cancelSession(String sessionId) async {
+    try {
+      await _service.cancelSession(sessionId);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> completeSession(String sessionId) async {
+    try {
+      await _service.completeSession(sessionId);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
   }
 
   SessionModel? getSessionById(String sessionId) {
     try {
-      return _sessions.firstWhere((s) => s.id == sessionId);
+      return _activeSessions.firstWhere((s) => s.sessionId == sessionId);
     } catch (_) {
-      return null;
+      try {
+        return _userSessions.firstWhere((s) => s.sessionId == sessionId);
+      } catch (_) {
+        return null;
+      }
     }
   }
 
-  void createSession(SessionModel session) {
-    _sessions.insert(0, session);
+  List<SessionModel> getCreatedByUser(String userId) =>
+      _userSessions.where((s) => s.hostId == userId).toList();
+
+  List<SessionModel> getJoinedByUser(String userId) =>
+      _userSessions.where((s) => s.hostId != userId && s.participantIds.contains(userId)).toList();
+
+  void clearError() {
+    _error = null;
     notifyListeners();
   }
 
-  bool joinSession(String sessionId, String userId) {
-    final index = _sessions.indexWhere((s) => s.id == sessionId);
-    if (index == -1) return false;
-
-    final session = _sessions[index];
-    if (session.isFull || session.participantIds.contains(userId)) {
-      return false;
-    }
-
-    final updatedParticipants = List<String>.from(session.participantIds)
-      ..add(userId);
-    _sessions[index] = session.copyWith(participantIds: updatedParticipants);
-    notifyListeners();
-    return true;
-  }
-
-  bool leaveSession(String sessionId, String userId) {
-    final index = _sessions.indexWhere((s) => s.id == sessionId);
-    if (index == -1) return false;
-
-    final session = _sessions[index];
-    if (!session.participantIds.contains(userId) ||
-        session.creatorId == userId) {
-      return false;
-    }
-
-    final updatedParticipants = List<String>.from(session.participantIds)
-      ..remove(userId);
-    _sessions[index] = session.copyWith(participantIds: updatedParticipants);
-    notifyListeners();
-    return true;
-  }
-
-  void updateSessionStatus(String sessionId, SessionStatus status) {
-    final index = _sessions.indexWhere((s) => s.id == sessionId);
-    if (index == -1) return;
-
-    _sessions[index] = _sessions[index].copyWith(status: status);
-    notifyListeners();
-  }
-
-  void cancelSession(String sessionId) {
-    updateSessionStatus(sessionId, SessionStatus.cancelled);
+  @override
+  void dispose() {
+    _activeSessionsSub?.cancel();
+    _userSessionsSub?.cancel();
+    super.dispose();
   }
 }

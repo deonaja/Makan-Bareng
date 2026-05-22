@@ -22,21 +22,27 @@ class ChatRoomScreen extends StatefulWidget {
 class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  late ChatProvider _chatProvider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _chatProvider = context.read<ChatProvider>();
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Subscribe ke stream messages via provider
       final chatProvider = context.read<ChatProvider>();
-      chatProvider.subscribeToMessages(widget.session.id);
+      chatProvider.subscribeToMessages(widget.session.sessionId);
 
       // Mark semua pesan sebagai sudah dibaca
       final auth = context.read<AuthProvider>();
       final currentUserId = auth.currentUser?.id ?? '';
       if (currentUserId.isNotEmpty) {
         chatProvider.markAllAsRead(
-          sessionId: widget.session.id,
+          sessionId: widget.session.sessionId,
           userId: currentUserId,
         );
       }
@@ -57,8 +63,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    // Unsubscribe saat keluar chat room
-    context.read<ChatProvider>().unsubscribeFromMessages(widget.session.id);
+    _chatProvider.unsubscribeFromMessages(widget.session.sessionId);
     super.dispose();
   }
 
@@ -75,7 +80,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
     try {
       await ChatService().sendMessage(
-        sessionId: widget.session.id,
+        sessionId: widget.session.sessionId,
         senderId: currentUser.id,
         senderName: currentUser.name,
         senderPhotoUrl: currentUser.photoUrl,
@@ -151,7 +156,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           // Messages — StreamBuilder untuk realtime (Section 11.1)
           Expanded(
             child: StreamBuilder<List<ChatMessageModel>>(
-              stream: ChatService().streamMessages(widget.session.id),
+              stream: ChatService().streamMessages(widget.session.sessionId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

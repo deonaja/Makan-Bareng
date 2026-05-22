@@ -18,8 +18,7 @@ class ChatListScreen extends StatelessWidget {
     final sessionProvider = context.watch<SessionProvider>();
     final currentUserId = auth.currentUser?.id ?? '';
 
-    // Get sessions where user is participant
-    final userSessions = sessionProvider.getSessionsByUser(currentUserId);
+    final userSessions = sessionProvider.userSessions;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -66,9 +65,9 @@ class ChatListScreen extends StatelessWidget {
 
                 // Stream last message dan unread count dari ChatService
                 return _ChatTileStream(
-                  sessionId: session.id,
+                  sessionId: session.sessionId,
                   sessionTitle: session.title,
-                  restaurantName: session.restaurantName,
+                  restaurantName: session.locationName,
                   participantCount: session.currentParticipants,
                   currentUserId: currentUserId,
                   onTap: () {
