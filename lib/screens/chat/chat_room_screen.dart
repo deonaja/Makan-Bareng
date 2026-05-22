@@ -22,12 +22,18 @@ class ChatRoomScreen extends StatefulWidget {
 class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  late ChatProvider _chatProvider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _chatProvider = context.read<ChatProvider>();
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Subscribe ke stream messages via provider
       final chatProvider = context.read<ChatProvider>();
       chatProvider.subscribeToMessages(widget.session.sessionId);
 
@@ -57,8 +63,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    // Unsubscribe saat keluar chat room
-    context.read<ChatProvider>().unsubscribeFromMessages(widget.session.sessionId);
+    _chatProvider.unsubscribeFromMessages(widget.session.sessionId);
     super.dispose();
   }
 
