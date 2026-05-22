@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -25,13 +26,12 @@ class SessionDetailScreen extends StatelessWidget {
     final userProvider = context.watch<UserProvider>();
     final currentUserId = auth.currentUser?.id ?? '';
 
-    // Get the latest session from provider
     final latestSession =
-        sessionProvider.getSessionById(session.id) ?? session;
+        sessionProvider.getSessionById(session.sessionId) ?? session;
 
     final isParticipant = latestSession.participantIds.contains(currentUserId);
-    final isCreator = latestSession.creatorId == currentUserId;
-    final isCompleted = latestSession.status == SessionStatus.completed;
+    final isCreator = latestSession.hostId == currentUserId;
+    final isCompleted = latestSession.status == 'completed';
     final timeFormat = DateFormat('HH:mm');
     final dateFormat = DateFormat('dd MMM yyyy');
 
@@ -60,7 +60,7 @@ class SessionDetailScreen extends StatelessWidget {
                 children: [
                   FlutterMap(
                     options: MapOptions(
-                      initialCenter: latestSession.location,
+                      initialCenter: LatLng(latestSession.locationLatitude, latestSession.locationLongitude),
                       initialZoom: 16.0,
                       interactionOptions: const InteractionOptions(
                         flags: InteractiveFlag.none,
@@ -75,7 +75,7 @@ class SessionDetailScreen extends StatelessWidget {
                       MarkerLayer(
                         markers: [
                           Marker(
-                            point: latestSession.location,
+                            point: LatLng(latestSession.locationLatitude, latestSession.locationLongitude),
                             child: Container(
                               decoration: BoxDecoration(
                                 color: AppColors.primary,
@@ -137,7 +137,7 @@ class SessionDetailScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          latestSession.statusText,
+                          _getStatusText(latestSession.status),
                           style: AppTextStyles.labelMedium.copyWith(
                             color:
                                 _getStatusColor(latestSession.status),
@@ -145,33 +145,6 @@ class SessionDetailScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      if (latestSession.isPublic)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.info.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.public_rounded,
-                                  size: 12, color: AppColors.info),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Publik',
-                                style:
-                                    AppTextStyles.labelMedium.copyWith(
-                                  color: AppColors.info,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -185,10 +158,10 @@ class SessionDetailScreen extends StatelessWidget {
                   Row(
                     children: [
                       AvatarWidget(
-                          name: latestSession.creatorName, size: 28),
+                          name: latestSession.hostName, size: 28),
                       const SizedBox(width: 8),
                       Text(
-                        'oleh ${latestSession.creatorName}',
+                        'oleh ${latestSession.hostName}',
                         style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -201,20 +174,20 @@ class SessionDetailScreen extends StatelessWidget {
                   _InfoRow(
                     icon: Icons.restaurant_rounded,
                     label: 'Tempat Makan',
-                    value: latestSession.restaurantName,
+                    value: latestSession.locationName,
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(
                     icon: Icons.location_on_rounded,
                     label: 'Alamat',
-                    value: latestSession.restaurantAddress,
+                    value: latestSession.locationAddress,
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(
                     icon: Icons.access_time_rounded,
                     label: 'Waktu',
                     value:
-                        '${dateFormat.format(latestSession.startTime)} • ${timeFormat.format(latestSession.startTime)}',
+                        '${dateFormat.format(latestSession.scheduledAt)} • ${timeFormat.format(latestSession.scheduledAt)}',
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(
@@ -244,7 +217,7 @@ class SessionDetailScreen extends StatelessWidget {
                   ...latestSession.participantIds.map((userId) {
                     final user = userProvider.getUserById(userId);
                     final isSessionCreator =
-                        userId == latestSession.creatorId;
+                        userId == latestSession.hostId;
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(12),
@@ -319,7 +292,7 @@ class SessionDetailScreen extends StatelessWidget {
 
                   // Available seats indicator
                   if (latestSession.availableSeats > 0 &&
-                      latestSession.status == SessionStatus.open) ...[
+                      latestSession.status == 'open') ...[
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -371,8 +344,8 @@ class SessionDetailScreen extends StatelessWidget {
                         isOutlined: true,
                         onPressed: () {
                           sessionProvider.leaveSession(
-                            latestSession.id,
-                            currentUserId,
+                            sessionId: latestSession.sessionId,
+                            userId: currentUserId,
                           );
                           Navigator.pop(context);
                         },
@@ -384,10 +357,7 @@ class SessionDetailScreen extends StatelessWidget {
                         backgroundColor: AppColors.success,
                         textColor: AppColors.success,
                         onPressed: () {
-                          sessionProvider.updateSessionStatus(
-                            latestSession.id,
-                            SessionStatus.completed,
-                          );
+                          sessionProvider.completeSession(latestSession.sessionId);
                         },
                       ),
                       const SizedBox(height: 12),
@@ -397,19 +367,20 @@ class SessionDetailScreen extends StatelessWidget {
                         backgroundColor: AppColors.error,
                         textColor: AppColors.error,
                         onPressed: () {
-                          sessionProvider.cancelSession(latestSession.id);
+                          sessionProvider.cancelSession(latestSession.sessionId);
                           Navigator.pop(context);
                         },
                       ),
                     ],
                   ] else if (!isParticipant &&
                       !latestSession.isFull &&
-                      latestSession.status == SessionStatus.open) ...[
+                      latestSession.status == 'open') ...[
                     CustomButton(
                       text: 'Gabung Sesi 🙌',
                       onPressed: () {
                         sessionProvider.joinSession(
-                            latestSession.id, currentUserId);
+                            sessionId: latestSession.sessionId,
+                            userId: currentUserId);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: const Text(
@@ -447,16 +418,37 @@ class SessionDetailScreen extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor(SessionStatus status) {
+  Color _getStatusColor(String status) {
     switch (status) {
-      case SessionStatus.open:
+      case 'open':
         return AppColors.success;
-      case SessionStatus.ongoing:
+      case 'full':
+        return AppColors.warning;
+      case 'ongoing':
         return AppColors.info;
-      case SessionStatus.completed:
+      case 'completed':
         return AppColors.accent;
-      case SessionStatus.cancelled:
+      case 'canceled':
         return AppColors.error;
+      default:
+        return AppColors.textTertiary;
+    }
+  }
+
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'open':
+        return 'Terbuka';
+      case 'full':
+        return 'Penuh';
+      case 'ongoing':
+        return 'Berlangsung';
+      case 'completed':
+        return 'Selesai';
+      case 'canceled':
+        return 'Dibatalkan';
+      default:
+        return status;
     }
   }
 }

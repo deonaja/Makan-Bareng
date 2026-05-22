@@ -57,7 +57,7 @@ class _RatingScreenState extends State<RatingScreen> {
         fromUserId: currentUserId,
         fromUserName: auth.currentUser!.name,
         toUserId: entry.key,
-        sessionId: widget.session.id,
+        sessionId: widget.session.sessionId,
         rating: entry.value,
         comment: _commentControllers[entry.key]?.text.trim() ?? '',
         timestamp: DateTime.now(),
@@ -122,7 +122,7 @@ class _RatingScreenState extends State<RatingScreen> {
                     children: [
                       Text(widget.session.title,
                           style: AppTextStyles.labelLarge),
-                      Text(widget.session.restaurantName,
+                      Text(widget.session.locationName,
                           style: AppTextStyles.caption),
                     ],
                   ),

@@ -146,9 +146,19 @@ class SessionProvider extends ChangeNotifier {
     try {
       return _activeSessions.firstWhere((s) => s.sessionId == sessionId);
     } catch (_) {
-      return null;
+      try {
+        return _userSessions.firstWhere((s) => s.sessionId == sessionId);
+      } catch (_) {
+        return null;
+      }
     }
   }
+
+  List<SessionModel> getCreatedByUser(String userId) =>
+      _userSessions.where((s) => s.hostId == userId).toList();
+
+  List<SessionModel> getJoinedByUser(String userId) =>
+      _userSessions.where((s) => s.hostId != userId && s.participantIds.contains(userId)).toList();
 
   void clearError() {
     _error = null;

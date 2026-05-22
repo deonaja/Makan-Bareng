@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../data/mock_data.dart';
-import '../../models/session_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/custom_button.dart';
@@ -68,43 +67,52 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     }
   }
 
-  void _createSession() {
+  void _createSession() async {
     if (!_formKey.currentState!.validate()) return;
 
     final auth = context.read<AuthProvider>();
     final sessionProvider = context.read<SessionProvider>();
+    final currentUser = auth.currentUser;
+    if (currentUser == null) return;
+
     final restaurant = MockData.restaurants[_selectedRestaurantIndex];
 
-    final newSession = SessionModel(
-      id: 'session_${DateTime.now().millisecondsSinceEpoch}',
-      creatorId: auth.currentUser!.id,
-      creatorName: auth.currentUser!.name,
+    final sessionId = await sessionProvider.createSession(
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
-      restaurantName: restaurant.name,
-      restaurantAddress: restaurant.address,
-      location: _selectedLocation,
-      startTime: _startTime,
+      hostId: currentUser.id,
+      hostName: currentUser.name,
+      hostPhotoUrl: currentUser.photoUrl,
+      locationName: restaurant.name,
+      locationAddress: restaurant.address,
+      locationLatitude: _selectedLocation.latitude,
+      locationLongitude: _selectedLocation.longitude,
+      scheduledAt: _startTime,
       maxParticipants: _maxParticipants,
-      participantIds: [auth.currentUser!.id],
-      status: SessionStatus.open,
-      isPublic: _isPublic,
-      createdAt: DateTime.now(),
-      category: restaurant.category,
     );
 
-    sessionProvider.createSession(newSession);
+    if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Sesi makan dibuat! 🎉'),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-
-    Navigator.pop(context);
+    if (sessionId != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Sesi makan dibuat! 🎉'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(sessionProvider.error ?? 'Gagal membuat sesi'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
   }
 
   @override

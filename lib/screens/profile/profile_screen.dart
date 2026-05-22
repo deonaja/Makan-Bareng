@@ -414,7 +414,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${session.restaurantName} • ${timeFormat.format(session.startTime)}',
+                        '${session.locationName} • ${timeFormat.format(session.scheduledAt)}',
                         style: AppTextStyles.caption,
                       ),
                     ],
@@ -431,7 +431,7 @@ class ProfileScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    session.statusText,
+                    _getStatusText(session.status),
                     style: AppTextStyles.caption.copyWith(
                       color: _getStatusColor(session.status),
                       fontWeight: FontWeight.w600,
@@ -446,18 +446,37 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor(dynamic status) {
-    switch (status.toString()) {
-      case 'SessionStatus.open':
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'open':
         return AppColors.success;
-      case 'SessionStatus.ongoing':
+      case 'full':
+        return AppColors.warning;
+      case 'ongoing':
         return AppColors.info;
-      case 'SessionStatus.completed':
+      case 'completed':
         return AppColors.accent;
-      case 'SessionStatus.cancelled':
+      case 'canceled':
         return AppColors.error;
       default:
         return AppColors.textTertiary;
+    }
+  }
+
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'open':
+        return 'Terbuka';
+      case 'full':
+        return 'Penuh';
+      case 'ongoing':
+        return 'Berlangsung';
+      case 'completed':
+        return 'Selesai';
+      case 'canceled':
+        return 'Dibatalkan';
+      default:
+        return status;
     }
   }
 }
