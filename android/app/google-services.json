@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "123659372988",
+    "project_id": "makan-bareng",
+    "storage_bucket": "makan-bareng.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123659372988:android:81e11dd4be126e7ff8c3b9",
+        "android_client_info": {
+          "package_name": "com.example.makan_bareng"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "123659372988-7lqp9e3ls0tlqmmr31kk43vpeggv5369.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3g4QIpaIJoY1MPDLd6lbJ6liAY3PMzO8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "123659372988-7lqp9e3ls0tlqmmr31kk43vpeggv5369.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
