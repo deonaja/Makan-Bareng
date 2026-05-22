@@ -1,6 +1,5 @@
 import 'package:latlong2/latlong.dart';
 import '../models/user_model.dart';
-import '../models/session_model.dart';
 import '../models/chat_message_model.dart';
 import '../models/restaurant_model.dart';
 import '../models/review_model.dart';
@@ -142,98 +141,6 @@ class MockData {
       rating: 4.8,
       category: 'Padang',
       priceRange: 'Rp 15.000 - 30.000',
-    ),
-  ];
-
-  // ============ SESSIONS ============
-  static final List<SessionModel> sessions = [
-    SessionModel(
-      id: 'session_1',
-      creatorId: 'user_1',
-      creatorName: 'Made Naradeon',
-      title: 'Makan Siang Bareng di Ampera 🍛',
-      description:
-          'Yuk makan siang bareng di Warung Ampera! Bisa sambil ngobrol tugas kelompok.',
-      restaurantName: 'Warung Nasi Ampera',
-      restaurantAddress: 'Jl. Telekomunikasi No. 1',
-      location: const LatLng(-6.9732, 107.6310),
-      startTime: DateTime.now().add(const Duration(hours: 2)),
-      maxParticipants: 4,
-      participantIds: ['user_1', 'user_2'],
-      status: SessionStatus.open,
-      isPublic: true,
-      createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-      category: 'Sunda',
-    ),
-    SessionModel(
-      id: 'session_2',
-      creatorId: 'user_5',
-      creatorName: 'Saladin Setyo',
-      title: 'Ngopi Sore ☕',
-      description:
-          'Butuh teman ngopi sore sambil ngerjain tugas. Yang mau join silakan!',
-      restaurantName: 'Kedai Kopi Nongkrong',
-      restaurantAddress: 'Jl. Sukapura No. 12',
-      location: const LatLng(-6.9750, 107.6325),
-      startTime: DateTime.now().add(const Duration(hours: 4)),
-      maxParticipants: 3,
-      participantIds: ['user_5'],
-      status: SessionStatus.open,
-      isPublic: true,
-      createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
-      category: 'Coffee & Snack',
-    ),
-    SessionModel(
-      id: 'session_3',
-      creatorId: 'user_3',
-      creatorName: 'Naemu Enggar',
-      title: 'Geprek Time! 🔥',
-      description:
-          'Makan geprek level 5 nih, ada yang berani? Patungan aja biar hemat.',
-      restaurantName: 'Ayam Geprek Juara',
-      restaurantAddress: 'Jl. PGA No. 34',
-      location: const LatLng(-6.9715, 107.6290),
-      startTime: DateTime.now().add(const Duration(hours: 1)),
-      maxParticipants: 5,
-      participantIds: ['user_3', 'user_4', 'user_2'],
-      status: SessionStatus.open,
-      isPublic: true,
-      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-      category: 'Ayam Geprek',
-    ),
-    SessionModel(
-      id: 'session_4',
-      creatorId: 'user_2',
-      creatorName: 'Revandi Akbar',
-      title: 'Bakso Kuah Hangat 🍜',
-      description: 'Hujan-hujan enaknya makan bakso!',
-      restaurantName: 'Bakso Boedjangan',
-      restaurantAddress: 'Jl. Telekomunikasi No. 50',
-      location: const LatLng(-6.9720, 107.6355),
-      startTime: DateTime.now().subtract(const Duration(hours: 3)),
-      maxParticipants: 4,
-      participantIds: ['user_2', 'user_1', 'user_5', 'user_4'],
-      status: SessionStatus.completed,
-      isPublic: true,
-      createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-      category: 'Bakso',
-    ),
-    SessionModel(
-      id: 'session_5',
-      creatorId: 'user_4',
-      creatorName: 'Muhammad Ihsan',
-      title: 'Mie Gacoan Yuk! 🌶️',
-      description: 'Makan Mie Gacoan level angel bareng-bareng',
-      restaurantName: 'Mie Gacoan',
-      restaurantAddress: 'Jl. Bojongsoang No. 88',
-      location: const LatLng(-6.9768, 107.6340),
-      startTime: DateTime.now().add(const Duration(hours: 3)),
-      maxParticipants: 6,
-      participantIds: ['user_4', 'user_3'],
-      status: SessionStatus.open,
-      isPublic: true,
-      createdAt: DateTime.now().subtract(const Duration(minutes: 45)),
-      category: 'Mie Pedas',
     ),
   ];
 

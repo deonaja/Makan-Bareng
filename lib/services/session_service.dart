@@ -1,0 +1,159 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/session_model.dart';
+
+class SessionService {
+  static final SessionService _instance = SessionService._internal();
+  factory SessionService() => _instance;
+  SessionService._internal();
+
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  CollectionReference get _sessions => _firestore.collection('sessions');
+
+  Future<String> createSession({
+    required String title,
+    required String description,
+    required String hostId,
+    required String hostName,
+    required String hostPhotoUrl,
+    required String locationName,
+    required String locationAddress,
+    required double locationLatitude,
+    required double locationLongitude,
+    required DateTime scheduledAt,
+    required int maxParticipants,
+    int durationMinutes = 60,
+    String coverImageUrl = '',
+  }) async {
+    try {
+      final docRef = await _sessions.add({
+        'title': title,
+        'description': description,
+        'hostId': hostId,
+        'hostName': hostName,
+        'hostPhotoUrl': hostPhotoUrl,
+        'location': {
+          'name': locationName,
+          'address': locationAddress,
+          'latitude': locationLatitude,
+          'longitude': locationLongitude,
+        },
+        'scheduledAt': Timestamp.fromDate(scheduledAt),
+        'durationMinutes': durationMinutes,
+        'maxParticipants': maxParticipants,
+        'currentParticipants': 1,
+        'participantIds': [hostId],
+        'status': 'open',
+        'coverImageUrl': coverImageUrl,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'completedAt': null,
+      });
+
+      await docRef.update({'sessionId': docRef.id});
+      return docRef.id;
+    } catch (e) {
+      throw Exception('Gagal membuat sesi: $e');
+    }
+  }
+
+  Future<SessionModel?> getSessionById(String sessionId) async {
+    try {
+      final doc = await _sessions.doc(sessionId).get();
+      if (!doc.exists) return null;
+      return SessionModel.fromFirestore(doc);
+    } catch (e) {
+      throw Exception('Gagal mengambil sesi: $e');
+    }
+  }
+
+  Stream<List<SessionModel>> streamActiveSessions() {
+    return _sessions
+        .where('status', whereIn: ['open', 'full'])
+        .orderBy('scheduledAt')
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => SessionModel.fromFirestore(doc)).toList());
+  }
+
+  Stream<List<SessionModel>> streamUserSessions(String userId) {
+    return _sessions
+        .where('participantIds', arrayContains: userId)
+        .orderBy('scheduledAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => SessionModel.fromFirestore(doc)).toList());
+  }
+
+  Future<void> joinSession({
+    required String sessionId,
+    required String userId,
+  }) async {
+    try {
+      final sessionRef = _sessions.doc(sessionId);
+
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(sessionRef);
+        if (!snapshot.exists) throw Exception('Sesi tidak ditemukan');
+
+        final data = snapshot.data() as Map<String, dynamic>;
+        final List<String> participants = List<String>.from(data['participantIds']);
+        final int current = data['currentParticipants'];
+        final int max = data['maxParticipants'];
+
+        if (participants.contains(userId)) {
+          throw Exception('Kamu sudah bergabung di sesi ini');
+        }
+        if (current >= max) throw Exception('Sesi sudah penuh');
+
+        final newCurrent = current + 1;
+        transaction.update(sessionRef, {
+          'participantIds': FieldValue.arrayUnion([userId]),
+          'currentParticipants': newCurrent,
+          'status': newCurrent >= max ? 'full' : 'open',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (e) {
+      throw Exception('Gagal join sesi: $e');
+    }
+  }
+
+  Future<void> leaveSession({
+    required String sessionId,
+    required String userId,
+  }) async {
+    try {
+      await _sessions.doc(sessionId).update({
+        'participantIds': FieldValue.arrayRemove([userId]),
+        'currentParticipants': FieldValue.increment(-1),
+        'status': 'open',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Gagal leave sesi: $e');
+    }
+  }
+
+  Future<void> cancelSession(String sessionId) async {
+    try {
+      await _sessions.doc(sessionId).update({
+        'status': 'canceled',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Gagal cancel sesi: $e');
+    }
+  }
+
+  Future<void> completeSession(String sessionId) async {
+    try {
+      await _sessions.doc(sessionId).update({
+        'status': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Gagal complete sesi: $e');
+    }
+  }
+}

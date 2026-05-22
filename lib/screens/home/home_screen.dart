@@ -23,6 +23,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showSessionList = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SessionProvider>().listenActiveSessions();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final sessionProvider = context.watch<SessionProvider>();
     final activeSessions = sessionProvider.activeSessions;
@@ -53,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
               MarkerLayer(
                 markers: activeSessions.map((session) {
                   return Marker(
-                    point: session.location,
+                    point: LatLng(session.locationLatitude, session.locationLongitude),
                     width: 50,
                     height: 50,
                     child: GestureDetector(
@@ -431,14 +439,14 @@ class _SessionCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                AvatarWidget(name: session.creatorName, size: 32),
+                AvatarWidget(name: session.hostName, size: 32),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        session.creatorName,
+                        session.hostName,
                         style: AppTextStyles.labelMedium.copyWith(
                           color: AppColors.textPrimary,
                         ),
@@ -446,7 +454,7 @@ class _SessionCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        timeFormat.format(session.startTime),
+                        timeFormat.format(session.scheduledAt),
                         style: AppTextStyles.caption,
                       ),
                     ],
@@ -490,7 +498,7 @@ class _SessionCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    session.restaurantName,
+                    session.locationName,
                     style: AppTextStyles.bodySmall,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
