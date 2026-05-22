@@ -21,8 +21,8 @@ class ProfileScreen extends StatelessWidget {
 
     if (user == null) return const SizedBox();
 
-    final createdSessions = sessionProvider.getCreatedByUser(user.id);
-    final joinedSessions = sessionProvider.getJoinedByUser(user.id);
+    final createdSessions = sessionProvider.getCreatedByUser(user.uid);
+    final joinedSessions = sessionProvider.getJoinedByUser(user.uid);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -94,7 +94,7 @@ class ProfileScreen extends StatelessWidget {
                             color: AppColors.accent, size: 22),
                         const SizedBox(width: 6),
                         Text(
-                          user.rating.toStringAsFixed(1),
+                          user.averageRating.toStringAsFixed(1),
                           style: AppTextStyles.heading4.copyWith(
                             color: AppColors.accent,
                           ),
@@ -115,7 +115,7 @@ class ProfileScreen extends StatelessWidget {
                   Row(
                     children: [
                       _StatCard(
-                        value: '${user.totalSessions}',
+                        value: '${user.sessionsCreated + user.sessionsJoined}',
                         label: 'Total Sesi',
                         icon: Icons.restaurant_rounded,
                       ),

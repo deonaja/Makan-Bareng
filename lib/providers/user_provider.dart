@@ -17,7 +17,7 @@ class UserProvider extends ChangeNotifier {
 
   UserModel? getUserById(String userId) {
     try {
-      return _users.firstWhere((u) => u.id == userId);
+      return _users.firstWhere((u) => u.uid == userId);
     } catch (_) {
       return null;
     }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../data/mock_data.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -14,6 +13,12 @@ class RegisterScreen extends StatefulWidget {
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
+
+const _kFoodOptions = [
+  'Nasi Padang', 'Mie Ayam', 'Bakso', 'Sushi', 'Pizza',
+  'Burger', 'Ramen', 'Sate', 'Gado-gado', 'Rendang',
+  'Nasi Goreng', 'Pecel Lele', 'Martabak', 'Dimsum', 'Kopi',
+];
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
@@ -55,10 +60,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       foodPreferences: _selectedPreferences,
     );
 
-    if (success && mounted) {
+    if (!mounted) return;
+
+    if (success) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const MainNavigation()),
         (route) => false,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.errorMessage ?? 'Gagal mendaftar'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -211,7 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: MockData.foodPreferenceOptions.map((pref) {
+                    children: _kFoodOptions.map((pref) {
                       final isSelected =
                           _selectedPreferences.contains(pref);
                       return GestureDetector(

@@ -1,48 +1,69 @@
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
-import '../data/mock_data.dart';
+import '../services/auth_service.dart';
 
 class AuthProvider extends ChangeNotifier {
+  final AuthService _authService = AuthService();
+
   UserModel? _currentUser;
   bool _isLoading = false;
-  bool _isLoggedIn = false;
+  String? _errorMessage;
+  StreamSubscription<User?>? _authSubscription;
 
   UserModel? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
-  bool get isLoggedIn => _isLoggedIn;
+  bool get isLoggedIn => _currentUser != null;
+  String? get errorMessage => _errorMessage;
+
+  AuthProvider() {
+    _listenToAuthChanges();
+  }
+
+  void _listenToAuthChanges() {
+    _authSubscription = _authService.authStateChanges().listen((firebaseUser) async {
+      if (firebaseUser == null) {
+        _currentUser = null;
+        notifyListeners();
+        return;
+      }
+
+      // User baru login — ambil dokumen Firestore-nya.
+      try {
+        _currentUser = await _authService.getUserDocument(firebaseUser.uid);
+      } catch (_) {
+        _currentUser = null;
+      }
+      notifyListeners();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Login dengan email & password
+  // ---------------------------------------------------------------------------
 
   Future<bool> login(String email, String password) async {
-    _isLoading = true;
-    notifyListeners();
-
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 1));
-
-    // Mock login: accept any email that matches our users, or any valid email format
-    final matchedUser = MockData.users.where((u) => u.email == email).toList();
-    if (matchedUser.isNotEmpty) {
-      _currentUser = matchedUser.first;
-    } else {
-      // Create a new user for any email
-      _currentUser = UserModel(
-        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-        name: email.split('@').first.replaceAll('.', ' '),
-        email: email,
-        bio: 'Mahasiswa baru di MakanBareng!',
-        foodPreferences: [],
-        rating: 0.0,
-        totalSessions: 0,
-        sessionsCreated: 0,
-        sessionsJoined: 0,
-        createdAt: DateTime.now(),
-      );
+    _setLoading(true);
+    _clearError();
+    try {
+      final credential = await _authService.login(email: email, password: password);
+      // Set _currentUser langsung agar tersedia sebelum navigasi terjadi,
+      // tidak menunggu stream listener yang async.
+      _currentUser = await _authService.getUserDocument(credential.user!.uid);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError(e.toString().replaceFirst('Exception: ', ''));
+      return false;
+    } finally {
+      _setLoading(false);
     }
-
-    _isLoggedIn = true;
-    _isLoading = false;
-    notifyListeners();
-    return true;
   }
+
+  // ---------------------------------------------------------------------------
+  // Register dengan email & password
+  // ---------------------------------------------------------------------------
 
   Future<bool> register({
     required String name,
@@ -50,51 +71,90 @@ class AuthProvider extends ChangeNotifier {
     required String password,
     List<String> foodPreferences = const [],
   }) async {
-    _isLoading = true;
-    notifyListeners();
-
-    await Future.delayed(const Duration(seconds: 1));
-
-    _currentUser = UserModel(
-      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      email: email,
-      bio: '',
-      foodPreferences: foodPreferences,
-      rating: 0.0,
-      totalSessions: 0,
-      sessionsCreated: 0,
-      sessionsJoined: 0,
-      createdAt: DateTime.now(),
-    );
-
-    _isLoggedIn = true;
-    _isLoading = false;
-    notifyListeners();
-    return true;
+    _setLoading(true);
+    _clearError();
+    try {
+      final credential = await _authService.register(
+        email: email,
+        password: password,
+        name: name,
+        foodPreferences: foodPreferences,
+      );
+      _currentUser = await _authService.getUserDocument(credential.user!.uid);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError(e.toString().replaceFirst('Exception: ', ''));
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
+
+  // ---------------------------------------------------------------------------
+  // Login dengan Google
+  // ---------------------------------------------------------------------------
 
   Future<void> loginWithGoogle() async {
-    _isLoading = true;
-    notifyListeners();
-
-    await Future.delayed(const Duration(seconds: 1));
-
-    // Mock Google login - use the first user
-    _currentUser = MockData.users.first;
-    _isLoggedIn = true;
-    _isLoading = false;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
+    try {
+      final credential = await _authService.loginWithGoogle();
+      _currentUser = await _authService.getUserDocument(credential.user!.uid);
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      _setLoading(false);
+    }
   }
+
+  // ---------------------------------------------------------------------------
+  // Logout
+  // ---------------------------------------------------------------------------
+
+  Future<void> logout() async {
+    _setLoading(true);
+    try {
+      await _authService.logout();
+      _currentUser = null;
+    } catch (e) {
+      _setError(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Update profil lokal (dipanggil oleh UserProvider setelah edit profil)
+  // ---------------------------------------------------------------------------
 
   void updateProfile(UserModel updatedUser) {
     _currentUser = updatedUser;
     notifyListeners();
   }
 
-  void logout() {
-    _currentUser = null;
-    _isLoggedIn = false;
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  void _setLoading(bool value) {
+    _isLoading = value;
     notifyListeners();
+  }
+
+  void _setError(String message) {
+    _errorMessage = message;
+    notifyListeners();
+  }
+
+  void _clearError() {
+    _errorMessage = null;
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 }

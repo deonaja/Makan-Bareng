@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import '../providers/auth_provider.dart';
+import '../providers/session_provider.dart';
 import 'home/home_screen.dart';
 import 'chat/chat_list_screen.dart';
 import 'profile/profile_screen.dart';
@@ -15,6 +18,19 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final uid = context.read<AuthProvider>().currentUser?.uid ?? '';
+      final sessionProvider = context.read<SessionProvider>();
+      sessionProvider.listenActiveSessions();
+      if (uid.isNotEmpty) {
+        sessionProvider.listenUserSessions(uid);
+      }
+    });
+  }
 
   final List<Widget> _screens = const [
     HomeScreen(),

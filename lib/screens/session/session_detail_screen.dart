@@ -24,7 +24,7 @@ class SessionDetailScreen extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final sessionProvider = context.watch<SessionProvider>();
     final userProvider = context.watch<UserProvider>();
-    final currentUserId = auth.currentUser?.id ?? '';
+    final currentUserId = auth.currentUser?.uid ?? '';
 
     final latestSession =
         sessionProvider.getSessionById(session.sessionId) ?? session;
@@ -254,7 +254,7 @@ class SessionDetailScreen extends StatelessWidget {
                                           color: AppColors.accent),
                                       const SizedBox(width: 4),
                                       Text(
-                                        user.rating.toStringAsFixed(1),
+                                        user.averageRating.toStringAsFixed(1),
                                         style: AppTextStyles.caption
                                             .copyWith(
                                           color: AppColors.accent,
