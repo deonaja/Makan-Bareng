@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/session_provider.dart';
 import 'home/home_screen.dart';
 import 'chat/chat_list_screen.dart';
+import 'history/history_screen.dart';
 import 'profile/profile_screen.dart';
 import 'session/create_session_screen.dart';
 
@@ -35,6 +36,7 @@ class _MainNavigationState extends State<MainNavigation> {
   final List<Widget> _screens = const [
     HomeScreen(),
     ChatListScreen(),
+    HistoryScreen(),
     ProfileScreen(),
   ];
 
@@ -129,21 +131,14 @@ class _MainNavigationState extends State<MainNavigation> {
                 _NavItem(
                   icon: Icons.history_rounded,
                   label: 'Riwayat',
-                  isSelected: false,
-                  onTap: () {
-                    // Navigate to session history
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ProfileScreen(),
-                      ),
-                    );
-                  },
+                  isSelected: _currentIndex == 2,
+                  onTap: () => _onItemTapped(2),
                 ),
                 _NavItem(
                   icon: Icons.person_rounded,
                   label: 'Profile',
-                  isSelected: _currentIndex == 2,
-                  onTap: () => _onItemTapped(2),
+                  isSelected: _currentIndex == 3,
+                  onTap: () => _onItemTapped(3),
                 ),
               ],
             ),
