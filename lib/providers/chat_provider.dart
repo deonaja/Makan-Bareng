@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/chat_message_model.dart';
 import '../services/chat_service.dart';
@@ -9,23 +8,12 @@ import '../services/chat_service.dart';
 class ChatProvider extends ChangeNotifier {
   final ChatService _chatService = ChatService();
 
-  // Stream subscriptions per session untuk cleanup
-  final Map<String, StreamSubscription> _subscriptions = {};
-
-  // Cache messages per session
-  final Map<String, List<ChatMessageModel>> _messagesCache = {};
-
   // Loading & error state
   bool _isLoading = false;
   String? _error;
 
   bool get isLoading => _isLoading;
   String? get error => _error;
-
-  /// Ambil messages dari cache untuk session tertentu
-  List<ChatMessageModel> getMessages(String sessionId) {
-    return _messagesCache[sessionId] ?? [];
-  }
 
   /// Stream messages untuk session tertentu (expose stream dari service)
   /// Digunakan oleh StreamBuilder di widget
@@ -43,38 +31,6 @@ class ChatProvider extends ChangeNotifier {
     return _chatService.streamUnreadCount(sessionId, userId);
   }
 
-  /// Subscribe ke messages stream dan update cache
-  /// Panggil saat masuk chat room
-  void subscribeToMessages(String sessionId) {
-    // Jangan subscribe ganda
-    if (_subscriptions.containsKey(sessionId)) return;
-
-    _isLoading = true;
-    notifyListeners();
-
-    _subscriptions[sessionId] =
-        _chatService.streamMessages(sessionId).listen(
-      (messages) {
-        _messagesCache[sessionId] = messages;
-        _isLoading = false;
-        _error = null;
-        notifyListeners();
-      },
-      onError: (e) {
-        _error = 'Gagal memuat pesan: $e';
-        _isLoading = false;
-        notifyListeners();
-      },
-    );
-  }
-
-  /// Unsubscribe dari messages stream
-  /// Panggil saat keluar chat room
-  void unsubscribeFromMessages(String sessionId) {
-    _subscriptions[sessionId]?.cancel();
-    _subscriptions.remove(sessionId);
-  }
-
   /// Kirim pesan text
   /// Section 8.5: one-shot operation, tapi tetap lewat provider biar UI consistent
   Future<void> sendMessage({
@@ -84,6 +40,9 @@ class ChatProvider extends ChangeNotifier {
     required String senderPhotoUrl,
     required String text,
   }) async {
+    _isLoading = true;
+    notifyListeners();
+
     try {
       await _chatService.sendMessage(
         sessionId: sessionId,
@@ -92,11 +51,13 @@ class ChatProvider extends ChangeNotifier {
         senderPhotoUrl: senderPhotoUrl,
         text: text,
       );
-      // Stream akan auto-update cache via subscription
+      _error = null;
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
       rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -105,15 +66,21 @@ class ChatProvider extends ChangeNotifier {
     required String sessionId,
     required String text,
   }) async {
+    _isLoading = true;
+    notifyListeners();
+
     try {
       await _chatService.sendSystemMessage(
         sessionId: sessionId,
         text: text,
       );
+      _error = null;
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
       rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -122,24 +89,20 @@ class ChatProvider extends ChangeNotifier {
     required String sessionId,
     required String userId,
   }) async {
+    _isLoading = true;
+    notifyListeners();
+
     try {
       await _chatService.markAllAsRead(
         sessionId: sessionId,
         userId: userId,
       );
+      _error = null;
     } catch (e) {
       _error = e.toString();
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
-  }
-
-  @override
-  void dispose() {
-    // Cancel semua subscriptions
-    for (final sub in _subscriptions.values) {
-      sub.cancel();
-    }
-    _subscriptions.clear();
-    super.dispose();
   }
 }

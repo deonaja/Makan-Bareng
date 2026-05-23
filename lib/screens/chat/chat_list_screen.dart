@@ -4,8 +4,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/chat_message_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/chat_provider.dart';
 import '../../providers/session_provider.dart';
-import '../../services/chat_service.dart';
 import 'chat_room_screen.dart';
 import 'package:intl/intl.dart';
 
@@ -18,6 +18,7 @@ class ChatListScreen extends StatelessWidget {
     final sessionProvider = context.watch<SessionProvider>();
     final currentUserId = auth.currentUser?.uid ?? '';
 
+    // Get sessions where user is participant
     final userSessions = sessionProvider.userSessions;
 
     return Scaffold(
@@ -105,11 +106,13 @@ class _ChatTileStream extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final chatProvider = context.read<ChatProvider>();
+
     return StreamBuilder<ChatMessageModel?>(
-      stream: ChatService().streamLastMessage(sessionId),
+      stream: chatProvider.streamLastMessage(sessionId),
       builder: (context, lastMsgSnapshot) {
         return StreamBuilder<int>(
-          stream: ChatService().streamUnreadCount(sessionId, currentUserId),
+          stream: chatProvider.streamUnreadCount(sessionId, currentUserId),
           builder: (context, unreadSnapshot) {
             final lastMessage = lastMsgSnapshot.data;
             final unreadCount = unreadSnapshot.data ?? 0;
