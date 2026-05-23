@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../data/mock_data.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
-import 'package:intl/intl.dart';
 
 class CreateSessionScreen extends StatefulWidget {
   const CreateSessionScreen({super.key});
@@ -19,19 +19,22 @@ class CreateSessionScreen extends StatefulWidget {
 }
 
 class _CreateSessionScreenState extends State<CreateSessionScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
+  final _locationNameController = TextEditingController();
+  final _locationAddressController = TextEditingController();
+
   int _maxParticipants = 4;
-  bool _isPublic = true;
   DateTime _startTime = DateTime.now().add(const Duration(hours: 1));
-  int _selectedRestaurantIndex = 0;
-  LatLng _selectedLocation = const LatLng(-6.9732, 107.6310);
+  final LatLng _selectedLocation = const LatLng(-6.9732, 107.6310);
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _locationNameController.dispose();
+    _locationAddressController.dispose();
     super.dispose();
   }
 
@@ -51,31 +54,47 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
         );
       },
     );
-    if (time != null) {
-      setState(() {
-        _startTime = DateTime(
-          DateTime.now().year,
-          DateTime.now().month,
-          DateTime.now().day,
-          time.hour,
-          time.minute,
-        );
-        if (_startTime.isBefore(DateTime.now())) {
-          _startTime = _startTime.add(const Duration(days: 1));
-        }
-      });
+
+    if (time == null) return;
+
+    final now = DateTime.now();
+    var selectedTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      time.hour,
+      time.minute,
+    );
+
+    if (!selectedTime.isAfter(now)) {
+      selectedTime = selectedTime.add(const Duration(days: 1));
     }
+
+    setState(() => _startTime = selectedTime);
   }
 
-  void _createSession() async {
+  Future<void> _createSession() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (!_startTime.isAfter(DateTime.now())) {
+      _showSnackBar(
+        message: 'Waktu mulai harus setelah waktu sekarang',
+        backgroundColor: AppColors.error,
+      );
+      return;
+    }
 
     final auth = context.read<AuthProvider>();
     final sessionProvider = context.read<SessionProvider>();
     final currentUser = auth.currentUser;
-    if (currentUser == null) return;
 
-    final restaurant = MockData.restaurants[_selectedRestaurantIndex];
+    if (currentUser == null) {
+      _showSnackBar(
+        message: 'Kamu harus login dulu',
+        backgroundColor: AppColors.error,
+      );
+      return;
+    }
 
     final sessionId = await sessionProvider.createSession(
       title: _titleController.text.trim(),
@@ -83,8 +102,8 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
       hostId: currentUser.uid,
       hostName: currentUser.name,
       hostPhotoUrl: currentUser.photoUrl,
-      locationName: restaurant.name,
-      locationAddress: restaurant.address,
+      locationName: _locationNameController.text.trim(),
+      locationAddress: _locationAddressController.text.trim(),
       locationLatitude: _selectedLocation.latitude,
       locationLongitude: _selectedLocation.longitude,
       scheduledAt: _startTime,
@@ -94,30 +113,37 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     if (!mounted) return;
 
     if (sessionId != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Sesi makan dibuat! 🎉'),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+      _showSnackBar(
+        message: 'Sesi makan dibuat!',
+        backgroundColor: AppColors.success,
       );
       Navigator.pop(context);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(sessionProvider.error ?? 'Gagal membuat sesi'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+      _showSnackBar(
+        message: sessionProvider.error ?? 'Gagal membuat sesi',
+        backgroundColor: AppColors.error,
       );
     }
+  }
+
+  void _showSnackBar({
+    required String message,
+    required Color backgroundColor,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final timeFormat = DateFormat('HH:mm');
+    final sessionProvider = context.watch<SessionProvider>();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -135,22 +161,19 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title
               CustomTextField(
                 controller: _titleController,
                 labelText: 'Judul Sesi',
-                hintText: 'Contoh: Makan Siang Bareng 🍛',
+                hintText: 'Contoh: Makan Siang Bareng',
                 prefixIcon: Icons.title_rounded,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Judul tidak boleh kosong';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 20),
-
-              // Description
               CustomTextField(
                 controller: _descriptionController,
                 labelText: 'Deskripsi',
@@ -159,97 +182,35 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                 maxLines: 3,
               ),
               const SizedBox(height: 24),
-
-              // Restaurant selection
-              Text('Pilih Tempat Makan', style: AppTextStyles.labelLarge),
+              Text('Lokasi Makan', style: AppTextStyles.labelLarge),
               const SizedBox(height: 12),
-              SizedBox(
-                height: 100,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: MockData.restaurants.length,
-                  itemBuilder: (context, index) {
-                    final restaurant = MockData.restaurants[index];
-                    final isSelected = _selectedRestaurantIndex == index;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedRestaurantIndex = index;
-                          _selectedLocation = restaurant.location;
-                        });
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 160,
-                        margin: const EdgeInsets.only(right: 10),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.primary.withValues(alpha: 0.1)
-                              : AppColors.surface,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.border,
-                            width: isSelected ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.restaurant_rounded,
-                                  size: 16,
-                                  color: isSelected
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    restaurant.name,
-                                    style:
-                                        AppTextStyles.labelMedium.copyWith(
-                                      color: isSelected
-                                          ? AppColors.primary
-                                          : AppColors.textPrimary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              restaurant.category,
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.textTertiary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              restaurant.priceRange,
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.accent,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              CustomTextField(
+                controller: _locationNameController,
+                labelText: 'Nama Tempat',
+                hintText: 'Contoh: Warung Bu Tini',
+                prefixIcon: Icons.restaurant_rounded,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Nama tempat tidak boleh kosong';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              CustomTextField(
+                controller: _locationAddressController,
+                labelText: 'Alamat',
+                hintText: 'Contoh: Jl. Telekomunikasi No. 1',
+                prefixIcon: Icons.location_on_rounded,
+                maxLines: 2,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Alamat tidak boleh kosong';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
-
-              // Mini map preview
               Container(
                 height: 150,
                 decoration: BoxDecoration(
@@ -281,8 +242,8 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.primary
-                                      .withValues(alpha: 0.5),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.5),
                                   blurRadius: 8,
                                 ),
                               ],
@@ -300,16 +261,13 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Time & participants row
               Row(
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Waktu Mulai',
-                            style: AppTextStyles.labelLarge),
+                        Text('Waktu Mulai', style: AppTextStyles.labelLarge),
                         const SizedBox(height: 8),
                         GestureDetector(
                           onTap: _pickTime,
@@ -321,14 +279,15 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                             decoration: BoxDecoration(
                               color: AppColors.surface,
                               borderRadius: BorderRadius.circular(12),
-                              border:
-                                  Border.all(color: AppColors.border),
+                              border: Border.all(color: AppColors.border),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.access_time_rounded,
-                                    size: 18,
-                                    color: AppColors.primary),
+                                Icon(
+                                  Icons.access_time_rounded,
+                                  size: 18,
+                                  color: AppColors.primary,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   timeFormat.format(_startTime),
@@ -346,8 +305,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Maks Peserta',
-                            style: AppTextStyles.labelLarge),
+                        Text('Maks Peserta', style: AppTextStyles.labelLarge),
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -360,16 +318,13 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                             border: Border.all(color: AppColors.border),
                           ),
                           child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               IconButton(
-                                icon: const Icon(
-                                    Icons.remove_rounded,
-                                    size: 18),
+                                icon:
+                                    const Icon(Icons.remove_rounded, size: 18),
                                 onPressed: _maxParticipants > 2
-                                    ? () => setState(
-                                        () => _maxParticipants--)
+                                    ? () => setState(() => _maxParticipants--)
                                     : null,
                                 color: AppColors.primary,
                                 padding: EdgeInsets.zero,
@@ -380,11 +335,9 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                                 style: AppTextStyles.heading4,
                               ),
                               IconButton(
-                                icon: const Icon(Icons.add_rounded,
-                                    size: 18),
+                                icon: const Icon(Icons.add_rounded, size: 18),
                                 onPressed: _maxParticipants < 10
-                                    ? () => setState(
-                                        () => _maxParticipants++)
+                                    ? () => setState(() => _maxParticipants++)
                                     : null,
                                 color: AppColors.primary,
                                 padding: EdgeInsets.zero,
@@ -398,59 +351,12 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-
-              // Public/Private toggle
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _isPublic
-                          ? Icons.public_rounded
-                          : Icons.lock_rounded,
-                      color: AppColors.primary,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _isPublic ? 'Sesi Publik' : 'Sesi Private',
-                            style: AppTextStyles.labelLarge,
-                          ),
-                          Text(
-                            _isPublic
-                                ? 'Semua orang bisa melihat dan bergabung'
-                                : 'Hanya yang diundang bisa bergabung',
-                            style: AppTextStyles.caption,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: _isPublic,
-                      onChanged: (value) =>
-                          setState(() => _isPublic = value),
-                      activeThumbColor: AppColors.primary,
-                      activeTrackColor:
-                          AppColors.primary.withValues(alpha: 0.3),
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 32),
-
-              // Create button
               CustomButton(
-                text: 'Buat Sesi Makan 🍽️',
+                text: sessionProvider.isLoading
+                    ? 'Membuat sesi...'
+                    : 'Buat Sesi Makan',
+                isLoading: sessionProvider.isLoading,
                 onPressed: _createSession,
               ),
               const SizedBox(height: 20),
