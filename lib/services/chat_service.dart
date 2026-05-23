@@ -45,19 +45,23 @@ class ChatService {
     required String senderPhotoUrl,
     required String text,
   }) async {
+    final trimmedText = text.trim();
+    if (trimmedText.isEmpty) {
+      throw Exception('Pesan tidak boleh kosong');
+    }
+
     try {
-      final docRef = await _messagesRef(sessionId).add({
+      final docRef = _messagesRef(sessionId).doc();
+      await docRef.set({
+        'messageId': docRef.id,
         'senderId': senderId,
         'senderName': senderName,
         'senderPhotoUrl': senderPhotoUrl,
-        'text': text,
+        'text': trimmedText,
         'type': 'text',
         'sentAt': FieldValue.serverTimestamp(),
         'readBy': [senderId], // Sender otomatis sudah baca
       });
-
-      // Update messageId field jadi sama dengan document ID
-      await docRef.update({'messageId': docRef.id});
     } catch (e) {
       throw Exception('Gagal mengirim pesan: $e');
     }
@@ -69,18 +73,23 @@ class ChatService {
     required String sessionId,
     required String text,
   }) async {
+    final trimmedText = text.trim();
+    if (trimmedText.isEmpty) {
+      throw Exception('Pesan system tidak boleh kosong');
+    }
+
     try {
-      final docRef = await _messagesRef(sessionId).add({
+      final docRef = _messagesRef(sessionId).doc();
+      await docRef.set({
+        'messageId': docRef.id,
         'senderId': 'system',
         'senderName': 'System',
         'senderPhotoUrl': '',
-        'text': text,
+        'text': trimmedText,
         'type': 'system',
         'sentAt': FieldValue.serverTimestamp(),
         'readBy': [],
       });
-
-      await docRef.update({'messageId': docRef.id});
     } catch (e) {
       throw Exception('Gagal mengirim pesan system: $e');
     }
@@ -92,6 +101,7 @@ class ChatService {
   Stream<List<ChatMessageModel>> streamMessages(String sessionId) {
     return _messagesRef(sessionId)
         .orderBy('sentAt', descending: false)
+        .limit(50)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => ChatMessageModel.fromFirestore(doc))
