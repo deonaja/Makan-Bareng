@@ -6,7 +6,7 @@ import '../../models/chat_message_model.dart';
 import '../../models/session_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
-import '../../services/chat_service.dart';
+import '../../providers/user_provider.dart';
 import '../../widgets/avatar_widget.dart';
 import 'package:intl/intl.dart';
 
@@ -22,22 +22,13 @@ class ChatRoomScreen extends StatefulWidget {
 class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
-  late ChatProvider _chatProvider;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _chatProvider = context.read<ChatProvider>();
-  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Mark semua pesan sebagai sudah dibaca via provider.
       final chatProvider = context.read<ChatProvider>();
-      chatProvider.subscribeToMessages(widget.session.sessionId);
-
-      // Mark semua pesan sebagai sudah dibaca
       final auth = context.read<AuthProvider>();
       final currentUserId = auth.currentUser?.uid ?? '';
       if (currentUserId.isNotEmpty) {
@@ -63,11 +54,10 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _chatProvider.unsubscribeFromMessages(widget.session.sessionId);
     super.dispose();
   }
 
-  /// Kirim pesan via ChatService (Section 8.5: one-shot operation)
+  /// Kirim pesan via ChatProvider (Widget -> Provider -> Service).
   void _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
@@ -79,7 +69,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     _messageController.clear();
 
     try {
-      await ChatService().sendMessage(
+      await context.read<ChatProvider>().sendMessage(
         sessionId: widget.session.sessionId,
         senderId: currentUser.uid,
         senderName: currentUser.name,
@@ -100,9 +90,21 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
+  /// Tampilkan bottom sheet info sesi (peserta, waktu, lokasi).
+  /// Data diambil dari widget.session yang sudah di-pass dari layar sebelumnya.
+  void _showSessionInfo() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _SessionInfoSheet(session: widget.session),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final chatProvider = context.read<ChatProvider>();
     final currentUserId = auth.currentUser?.uid ?? '';
 
     return Scaffold(
@@ -147,7 +149,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline_rounded, size: 22),
-            onPressed: () {},
+            onPressed: _showSessionInfo,
           ),
         ],
       ),
@@ -156,7 +158,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           // Messages — StreamBuilder untuk realtime (Section 11.1)
           Expanded(
             child: StreamBuilder<List<ChatMessageModel>>(
-              stream: ChatService().streamMessages(widget.session.sessionId),
+              stream: chatProvider.streamMessages(widget.session.sessionId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -167,6 +169,20 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                   );
                 }
                 final messages = snapshot.data ?? [];
+                final hasUnreadMessages = currentUserId.isNotEmpty &&
+                    messages.any((message) =>
+                        message.senderId != currentUserId &&
+                        !message.readBy.contains(currentUserId));
+                if (hasUnreadMessages) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    context.read<ChatProvider>().markAllAsRead(
+                          sessionId: widget.session.sessionId,
+                          userId: currentUserId,
+                        );
+                  });
+                }
+
                 if (messages.isEmpty) {
                   return Center(
                     child: Column(
@@ -418,6 +434,409 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Bottom sheet yang menampilkan info lengkap sesi: judul, status, deskripsi,
+/// lokasi, waktu, host, dan list peserta. Tinggi fixed ~70% layar.
+class _SessionInfoSheet extends StatelessWidget {
+  final SessionModel session;
+
+  const _SessionInfoSheet({required this.session});
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'open':
+        return AppColors.success;
+      case 'ongoing':
+        return AppColors.info;
+      case 'completed':
+        return AppColors.textTertiary;
+      case 'canceled':
+      case 'cancelled':
+        return AppColors.error;
+      default:
+        return AppColors.textTertiary;
+    }
+  }
+
+  IconData _statusIcon(String status) {
+    switch (status) {
+      case 'open':
+        return Icons.lock_open_rounded;
+      case 'ongoing':
+        return Icons.restaurant_rounded;
+      case 'completed':
+        return Icons.check_circle_rounded;
+      case 'canceled':
+      case 'cancelled':
+        return Icons.cancel_rounded;
+      default:
+        return Icons.info_outline_rounded;
+    }
+  }
+
+  String _statusText(String status) {
+    switch (status) {
+      case 'open':
+        return 'Terbuka';
+      case 'full':
+        return 'Penuh';
+      case 'ongoing':
+        return 'Berlangsung';
+      case 'completed':
+        return 'Selesai';
+      case 'canceled':
+      case 'cancelled':
+        return 'Dibatalkan';
+      default:
+        return status;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final userProvider = context.watch<UserProvider>();
+    final dateFormat = DateFormat('dd MMM yyyy');
+    final timeFormat = DateFormat('HH:mm');
+    final statusColor = _statusColor(session.status);
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: BoxDecoration(
+        color: AppColors.backgroundLight,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(
+          top: BorderSide(
+            color: AppColors.border.withValues(alpha: 0.5),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag handle bar
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textTertiary.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Header row: title + close button
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+            child: Row(
+              children: [
+                Text(
+                  'Info Sesi',
+                  style: AppTextStyles.heading3.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: AppColors.textSecondary,
+                    size: 22,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+
+          Divider(
+            height: 1,
+            color: AppColors.border.withValues(alpha: 0.5),
+          ),
+
+          // Scrollable content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title sesi
+                  Text(
+                    session.title,
+                    style: AppTextStyles.heading2.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Status badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: statusColor.withValues(alpha: 0.4),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _statusIcon(session.status),
+                          size: 13,
+                          color: statusColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _statusText(session.status),
+                          style: AppTextStyles.caption.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Deskripsi (kalau ada)
+                  if (session.description.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      session.description,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // === Section: Lokasi ===
+                  _SectionLabel(text: 'Lokasi'),
+                  const SizedBox(height: 10),
+                  _InfoRow(
+                    icon: Icons.restaurant_menu_rounded,
+                    text: session.locationName,
+                    isPrimary: true,
+                  ),
+                  if (session.locationAddress.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _InfoRow(
+                      icon: Icons.location_on_rounded,
+                      text: session.locationAddress,
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // === Section: Waktu ===
+                  _SectionLabel(text: 'Waktu'),
+                  const SizedBox(height: 10),
+                  _InfoRow(
+                    icon: Icons.calendar_today_rounded,
+                    text: dateFormat.format(session.scheduledAt),
+                    isPrimary: true,
+                  ),
+                  const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: Icons.access_time_rounded,
+                    text: timeFormat.format(session.scheduledAt),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // === Section: Host ===
+                  _SectionLabel(text: 'Host'),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      AvatarWidget(
+                        name: session.hostName,
+                        photoUrl: session.hostPhotoUrl.isEmpty
+                            ? null
+                            : session.hostPhotoUrl,
+                        size: 40,
+                        showBorder: true,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              session.hostName,
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Pembuat sesi',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // === Section: Peserta ===
+                  Row(
+                    children: [
+                      _SectionLabel(text: 'Peserta'),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${session.currentParticipants}/${session.maxParticipants}',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ...session.participantIds.map((id) {
+                    final user = userProvider.getUserById(id);
+                    final isHost = id == session.hostId;
+                    final name = user?.name ?? 'Peserta';
+                    final photoUrl = user?.photoUrl ?? '';
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          AvatarWidget(
+                            name: name,
+                            photoUrl: photoUrl.isEmpty ? null : photoUrl,
+                            size: 36,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.textPrimary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isHost)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                'Host',
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+
+  const _SectionLabel({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text.toUpperCase(),
+      style: AppTextStyles.caption.copyWith(
+        color: AppColors.textTertiary,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final bool isPrimary;
+
+  const _InfoRow({
+    required this.icon,
+    required this.text,
+    this.isPrimary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: isPrimary ? AppColors.primary : AppColors.textTertiary,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: isPrimary
+                  ? AppColors.textPrimary
+                  : AppColors.textSecondary,
+              fontWeight: isPrimary ? FontWeight.w500 : FontWeight.w400,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
