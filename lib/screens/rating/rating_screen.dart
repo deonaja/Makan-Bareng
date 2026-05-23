@@ -27,7 +27,7 @@ class _RatingScreenState extends State<RatingScreen> {
   void initState() {
     super.initState();
     final auth = context.read<AuthProvider>();
-    final currentUserId = auth.currentUser?.id ?? '';
+    final currentUserId = auth.currentUser?.uid ?? '';
 
     for (final userId in widget.session.participantIds) {
       if (userId != currentUserId) {
@@ -48,7 +48,7 @@ class _RatingScreenState extends State<RatingScreen> {
   void _submitRatings() {
     final auth = context.read<AuthProvider>();
     final userProvider = context.read<UserProvider>();
-    final currentUserId = auth.currentUser?.id ?? '';
+    final currentUserId = auth.currentUser?.uid ?? '';
 
     final reviews = <ReviewModel>[];
     for (final entry in _ratings.entries) {
@@ -82,7 +82,7 @@ class _RatingScreenState extends State<RatingScreen> {
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final auth = context.watch<AuthProvider>();
-    final currentUserId = auth.currentUser?.id ?? '';
+    final currentUserId = auth.currentUser?.uid ?? '';
 
     final otherParticipants = widget.session.participantIds
         .where((id) => id != currentUserId)
@@ -185,7 +185,7 @@ class _RatingScreenState extends State<RatingScreen> {
                                         color: AppColors.accent),
                                     const SizedBox(width: 4),
                                     Text(
-                                      '${user?.rating.toStringAsFixed(1) ?? '0.0'} avg',
+                                      '${user?.averageRating.toStringAsFixed(1) ?? '0.0'} avg',
                                       style: AppTextStyles.caption
                                           .copyWith(
                                         color: AppColors.accent,

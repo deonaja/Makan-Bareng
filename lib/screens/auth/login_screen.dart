@@ -58,9 +58,18 @@ class _LoginScreenState extends State<LoginScreen>
       _passwordController.text,
     );
 
-    if (success && mounted) {
+    if (!mounted) return;
+
+    if (success) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainNavigation()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.errorMessage ?? 'Gagal masuk'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -69,7 +78,16 @@ class _LoginScreenState extends State<LoginScreen>
     final auth = context.read<AuthProvider>();
     await auth.loginWithGoogle();
 
-    if (mounted) {
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.errorMessage!),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } else {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainNavigation()),
       );

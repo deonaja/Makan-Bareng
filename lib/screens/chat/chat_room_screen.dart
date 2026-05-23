@@ -39,7 +39,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
       // Mark semua pesan sebagai sudah dibaca
       final auth = context.read<AuthProvider>();
-      final currentUserId = auth.currentUser?.id ?? '';
+      final currentUserId = auth.currentUser?.uid ?? '';
       if (currentUserId.isNotEmpty) {
         chatProvider.markAllAsRead(
           sessionId: widget.session.sessionId,
@@ -81,7 +81,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     try {
       await ChatService().sendMessage(
         sessionId: widget.session.sessionId,
-        senderId: currentUser.id,
+        senderId: currentUser.uid,
         senderName: currentUser.name,
         senderPhotoUrl: currentUser.photoUrl,
         text: text,
@@ -103,7 +103,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final currentUserId = auth.currentUser?.id ?? '';
+    final currentUserId = auth.currentUser?.uid ?? '';
 
     return Scaffold(
       backgroundColor: AppColors.background,

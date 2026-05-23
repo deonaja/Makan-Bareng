@@ -80,7 +80,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     final sessionId = await sessionProvider.createSession(
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
-      hostId: currentUser.id,
+      hostId: currentUser.uid,
       hostName: currentUser.name,
       hostPhotoUrl: currentUser.photoUrl,
       locationName: restaurant.name,

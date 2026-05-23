@@ -16,7 +16,7 @@ class ChatListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final sessionProvider = context.watch<SessionProvider>();
-    final currentUserId = auth.currentUser?.id ?? '';
+    final currentUserId = auth.currentUser?.uid ?? '';
 
     final userSessions = sessionProvider.userSessions;
 
