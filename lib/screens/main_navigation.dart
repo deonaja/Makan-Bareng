@@ -4,6 +4,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../providers/auth_provider.dart';
 import '../providers/session_provider.dart';
+import '../services/notification_service.dart';
 import 'home/home_screen.dart';
 import 'chat/chat_list_screen.dart';
 import 'history/history_screen.dart';
@@ -19,6 +20,8 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  SessionProvider? _sessionProvider;
+  String? _currentUserId;
 
   @override
   void initState() {
@@ -26,9 +29,13 @@ class _MainNavigationState extends State<MainNavigation> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final uid = context.read<AuthProvider>().currentUser?.uid ?? '';
       final sessionProvider = context.read<SessionProvider>();
+      _sessionProvider = sessionProvider;
+      _currentUserId = uid;
       sessionProvider.listenActiveSessions();
       if (uid.isNotEmpty) {
         sessionProvider.listenUserSessions(uid);
+        sessionProvider.addListener(_syncHostedSessionNotifications);
+        _syncHostedSessionNotifications();
       }
     });
   }
@@ -60,6 +67,23 @@ class _MainNavigationState extends State<MainNavigation> {
         transitionDuration: const Duration(milliseconds: 400),
       ),
     );
+  }
+
+  void _syncHostedSessionNotifications() {
+    final uid = _currentUserId;
+    final sessionProvider = _sessionProvider;
+    if (uid == null || uid.isEmpty || sessionProvider == null) return;
+
+    NotificationService().subscribeToSessionUpdates(
+      hostedSessions: sessionProvider.getCreatedByUser(uid),
+    );
+  }
+
+  @override
+  void dispose() {
+    _sessionProvider?.removeListener(_syncHostedSessionNotifications);
+    NotificationService().dispose();
+    super.dispose();
   }
 
   @override
