@@ -156,4 +156,11 @@ class SessionService {
       throw Exception('Gagal complete sesi: $e');
     }
   }
+
+  Stream<SessionModel?> streamSessionById(String sessionId) {
+    return _sessions.doc(sessionId).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return SessionModel.fromFirestore(doc);
+    });
+  }
 }

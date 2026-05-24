@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import '../models/session_model.dart';
 import '../services/session_service.dart';
 
@@ -10,6 +11,10 @@ class SessionProvider extends ChangeNotifier {
   List<SessionModel> _userSessions = [];
   bool _isLoading = false;
   String? _error;
+  String _searchQuery = '';
+  String _sortBy = 'waktu';
+  double? _userLat;
+  double? _userLng;
 
   StreamSubscription<List<SessionModel>>? _activeSessionsSub;
   StreamSubscription<List<SessionModel>>? _userSessionsSub;
@@ -18,6 +23,40 @@ class SessionProvider extends ChangeNotifier {
   List<SessionModel> get userSessions => _userSessions;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  String get searchQuery => _searchQuery;
+  String get sortBy => _sortBy;
+
+  List<SessionModel> get filteredSessions {
+    var list = List<SessionModel>.from(_activeSessions);
+
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list
+          .where((s) =>
+              s.title.toLowerCase().contains(q) ||
+              s.locationName.toLowerCase().contains(q))
+          .toList();
+    }
+
+    if (_sortBy == 'jarak' && _userLat != null && _userLng != null) {
+      const calc = Distance();
+      list.sort((a, b) {
+        final da = calc(
+          LatLng(_userLat!, _userLng!),
+          LatLng(a.locationLatitude, a.locationLongitude),
+        );
+        final db = calc(
+          LatLng(_userLat!, _userLng!),
+          LatLng(b.locationLatitude, b.locationLongitude),
+        );
+        return da.compareTo(db);
+      });
+    } else {
+      list.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    }
+
+    return list;
+  }
 
   void listenActiveSessions() {
     _activeSessionsSub?.cancel();
@@ -159,6 +198,22 @@ class SessionProvider extends ChangeNotifier {
 
   List<SessionModel> getJoinedByUser(String userId) =>
       _userSessions.where((s) => s.hostId != userId && s.participantIds.contains(userId)).toList();
+
+  void setSearchQuery(String query) {
+    _searchQuery = query;
+    notifyListeners();
+  }
+
+  void setSortBy(String value) {
+    _sortBy = value;
+    notifyListeners();
+  }
+
+  void setUserLocation(double lat, double lng) {
+    _userLat = lat;
+    _userLng = lng;
+    notifyListeners();
+  }
 
   void clearError() {
     _error = null;

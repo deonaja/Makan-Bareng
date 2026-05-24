@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
@@ -19,7 +20,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final MapController _mapController = MapController();
-  final LatLng _defaultCenter = const LatLng(-6.9732, 107.6310); // Tel-U
+  final TextEditingController _searchController = TextEditingController();
+  static const LatLng _telUCenter = LatLng(-6.9732, 107.6310);
+  LatLng _userLocation = _telUCenter;
   bool _showSessionList = false;
 
   @override
@@ -27,13 +30,86 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SessionProvider>().listenActiveSessions();
+      _getUserLocation();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _getUserLocation() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
+      }
+      if (permission == LocationPermission.deniedForever) return;
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      if (!mounted) return;
+      setState(() => _userLocation = LatLng(position.latitude, position.longitude));
+      if (!mounted) return;
+      context.read<SessionProvider>().setUserLocation(position.latitude, position.longitude);
+      _mapController.move(_userLocation, 15.0);
+    } catch (_) {
+      // Gagal ambil lokasi, pakai default Tel-U
+    }
+  }
+
+  void _showFilterSheet() {
+    final provider = context.read<SessionProvider>();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.backgroundLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Urutkan Sesi', style: AppTextStyles.heading4),
+            const SizedBox(height: 16),
+            _FilterOption(
+              label: 'Waktu Terdekat',
+              icon: Icons.access_time_rounded,
+              selected: provider.sortBy == 'waktu',
+              onTap: () {
+                provider.setSortBy('waktu');
+                Navigator.pop(ctx);
+              },
+            ),
+            const SizedBox(height: 8),
+            _FilterOption(
+              label: 'Jarak Terdekat',
+              icon: Icons.near_me_rounded,
+              selected: provider.sortBy == 'jarak',
+              onTap: () {
+                provider.setSortBy('jarak');
+                Navigator.pop(ctx);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final sessionProvider = context.watch<SessionProvider>();
-    final activeSessions = sessionProvider.activeSessions;
+    final sessions = sessionProvider.filteredSessions;
 
     return Scaffold(
       body: Stack(
@@ -42,11 +118,11 @@ class _HomeScreenState extends State<HomeScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _defaultCenter,
+              initialCenter: _userLocation,
               initialZoom: 15.0,
               minZoom: 10,
               maxZoom: 18,
-              onTap: (_, _) {
+              onTap: (tapPosition, point) {
                 setState(() => _showSessionList = false);
               },
             ),
@@ -57,9 +133,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 subdomains: const ['a', 'b', 'c', 'd'],
                 userAgentPackageName: 'com.makanbareng.app',
               ),
-              // Session markers
+              // Session markers (filtered)
               MarkerLayer(
-                markers: activeSessions.map((session) {
+                markers: sessions.map((session) {
                   return Marker(
                     point: LatLng(session.locationLatitude, session.locationLongitude),
                     width: 50,
@@ -68,8 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) =>
-                                SessionDetailScreen(session: session),
+                            builder: (_) => SessionDetailScreen(session: session),
                           ),
                         );
                       },
@@ -82,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
               MarkerLayer(
                 markers: [
                   Marker(
-                    point: _defaultCenter,
+                    point: _userLocation,
                     width: 30,
                     height: 30,
                     child: Container(
@@ -134,7 +209,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
+                      controller: _searchController,
                       style: AppTextStyles.bodyMedium,
+                      onChanged: (q) =>
+                          context.read<SessionProvider>().setSearchQuery(q),
                       decoration: InputDecoration(
                         hintText: 'Cari sesi makan di sekitarmu...',
                         hintStyle: AppTextStyles.bodyMedium.copyWith(
@@ -145,19 +223,39 @@ class _HomeScreenState extends State<HomeScreen> {
                         focusedBorder: InputBorder.none,
                         filled: false,
                         contentPadding: EdgeInsets.zero,
+                        suffixIcon: sessionProvider.searchQuery.isNotEmpty
+                            ? GestureDetector(
+                                onTap: () {
+                                  _searchController.clear();
+                                  context
+                                      .read<SessionProvider>()
+                                      .setSearchQuery('');
+                                },
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  size: 18,
+                                  color: AppColors.textTertiary,
+                                ),
+                              )
+                            : null,
                       ),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.tune_rounded,
-                      color: AppColors.primary,
-                      size: 18,
+                  GestureDetector(
+                    onTap: _showFilterSheet,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: sessionProvider.sortBy == 'jarak'
+                            ? AppColors.primary.withValues(alpha: 0.3)
+                            : AppColors.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.tune_rounded,
+                        color: AppColors.primary,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ],
@@ -174,7 +272,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _MapButton(
                   icon: Icons.my_location_rounded,
                   onTap: () {
-                    _mapController.move(_defaultCenter, 15.0);
+                    _mapController.move(_userLocation, 15.0);
                   },
                 ),
                 const SizedBox(height: 8),
@@ -213,7 +311,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Column(
                 children: [
-                  // Handle
                   Container(
                     margin: const EdgeInsets.only(top: 12),
                     width: 40,
@@ -229,7 +326,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Sesi Makan Terdekat',
+                          sessionProvider.searchQuery.isNotEmpty
+                              ? 'Hasil Pencarian'
+                              : 'Sesi Makan Terdekat',
                           style: AppTextStyles.heading4,
                         ),
                         Container(
@@ -242,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '${activeSessions.length} aktif',
+                            '${sessions.length} aktif',
                             style: AppTextStyles.labelMedium.copyWith(
                               color: AppColors.primary,
                             ),
@@ -251,27 +350,39 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
-                  Expanded(
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      itemCount: activeSessions.length,
-                      itemBuilder: (context, index) {
-                        return _SessionCard(
-                          session: activeSessions[index],
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => SessionDetailScreen(
-                                  session: activeSessions[index],
+                  if (sessions.isEmpty)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          'Tidak ada sesi yang ditemukan',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        itemCount: sessions.length,
+                        itemBuilder: (context, index) {
+                          return _SessionCard(
+                            session: sessions[index],
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => SessionDetailScreen(
+                                    session: sessions[index],
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                        );
-                      },
+                              );
+                            },
+                          );
+                        },
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -318,7 +429,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '${activeSessions.length} sesi makan aktif di sekitarmu',
+                          '${sessions.length} sesi makan aktif di sekitarmu',
                           style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.textPrimary,
                           ),
@@ -474,9 +585,7 @@ class _SessionCard extends StatelessWidget {
                   child: Text(
                     '${session.currentParticipants}/${session.maxParticipants}',
                     style: AppTextStyles.caption.copyWith(
-                      color: session.isFull
-                          ? AppColors.error
-                          : AppColors.success,
+                      color: session.isFull ? AppColors.error : AppColors.success,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -493,8 +602,7 @@ class _SessionCard extends StatelessWidget {
             const SizedBox(height: 4),
             Row(
               children: [
-                Icon(Icons.location_on_rounded,
-                    size: 14, color: AppColors.primary),
+                Icon(Icons.location_on_rounded, size: 14, color: AppColors.primary),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -515,6 +623,59 @@ class _SessionCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterOption extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterOption({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.15)
+              : AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: selected ? AppColors.primary : AppColors.textSecondary,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: selected ? AppColors.primary : AppColors.textPrimary,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+            const Spacer(),
+            if (selected)
+              Icon(Icons.check_rounded, color: AppColors.primary, size: 18),
           ],
         ),
       ),
