@@ -8,6 +8,7 @@ import 'providers/auth_provider.dart' as app_auth;
 import 'providers/session_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/user_provider.dart';
+import 'services/notification_service.dart';
 import 'screens/splash/splash_screen.dart';
 
 void main() async {
@@ -16,6 +17,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await NotificationService().init();
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
