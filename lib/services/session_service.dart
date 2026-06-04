@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/session_model.dart';
+import 'chat_service.dart';
 
 class SessionService {
   static final SessionService _instance = SessionService._internal();
@@ -50,6 +51,17 @@ class SessionService {
       });
 
       await docRef.update({'sessionId': docRef.id});
+
+      // Buat pesan sistem pembuka agar chat grup langsung "ada"
+      try {
+        await ChatService().sendSystemMessage(
+          sessionId: docRef.id,
+          text: '🍽️ Sesi "$title" telah dibuat. Selamat datang!',
+        );
+      } catch (_) {
+        // Non-critical — gagal buat pesan sistem tidak batalkan sesi
+      }
+
       return docRef.id;
     } catch (e) {
       throw Exception('Gagal membuat sesi: $e');
@@ -66,22 +78,32 @@ class SessionService {
     }
   }
 
+  /// Tidak pakai orderBy di Firestore karena butuh composite index yang
+  /// belum tentu ada. Sorting dilakukan di sisi Dart.
   Stream<List<SessionModel>> streamActiveSessions() {
     return _sessions
         .where('status', whereIn: ['open', 'full'])
-        .orderBy('scheduledAt')
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => SessionModel.fromFirestore(doc)).toList());
+        .map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => SessionModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      return list;
+    });
   }
 
   Stream<List<SessionModel>> streamUserSessions(String userId) {
     return _sessions
         .where('participantIds', arrayContains: userId)
-        .orderBy('scheduledAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => SessionModel.fromFirestore(doc)).toList());
+        .map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => SessionModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+      return list;
+    });
   }
 
   Future<void> joinSession({

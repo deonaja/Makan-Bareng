@@ -1,15 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/session_model.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/avatar_widget.dart';
 import '../session/session_detail_screen.dart';
-import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,23 +27,30 @@ class _HomeScreenState extends State<HomeScreen> {
   static const LatLng _telUCenter = LatLng(-6.9732, 107.6310);
   LatLng _userLocation = _telUCenter;
   bool _showSessionList = false;
+  bool _isLocating = false;
+
+  StreamSubscription<Position>? _positionSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SessionProvider>().listenActiveSessions();
-      _getUserLocation();
+      _startLocationTracking();
     });
   }
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _getUserLocation() async {
+  /// Mulai tracking lokasi real-time.
+  /// - Ambil posisi awal → langsung pindahkan peta
+  /// - Subscribe ke stream posisi → update dot biru saat user bergerak
+  Future<void> _startLocationTracking() async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return;
@@ -52,16 +62,42 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       if (permission == LocationPermission.deniedForever) return;
 
-      final position = await Geolocator.getCurrentPosition(
+      if (!mounted) return;
+      setState(() => _isLocating = true);
+
+      // Posisi awal — langsung pindahkan kamera
+      final initial = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
       if (!mounted) return;
-      setState(() => _userLocation = LatLng(position.latitude, position.longitude));
-      if (!mounted) return;
-      context.read<SessionProvider>().setUserLocation(position.latitude, position.longitude);
+      final initialLatLng = LatLng(initial.latitude, initial.longitude);
+      setState(() {
+        _userLocation = initialLatLng;
+        _isLocating = false;
+      });
+      context.read<SessionProvider>()
+          .setUserLocation(initial.latitude, initial.longitude);
       _mapController.move(_userLocation, 15.0);
+
+      // Stream posisi — update dot biru saat user bergerak (min 15 m)
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 15,
+        ),
+      ).listen(
+        (pos) {
+          if (!mounted) return;
+          final updated = LatLng(pos.latitude, pos.longitude);
+          setState(() => _userLocation = updated);
+          context.read<SessionProvider>()
+              .setUserLocation(pos.latitude, pos.longitude);
+        },
+        onError: (_) {}, // Abaikan error stream — posisi terakhir tetap dipakai
+      );
     } catch (_) {
-      // Gagal ambil lokasi, pakai default Tel-U
+      if (mounted) setState(() => _isLocating = false);
+      // Gagal ambil lokasi, dot biru tetap di Tel-U sebagai fallback
     }
   }
 
@@ -270,9 +306,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               children: [
                 _MapButton(
-                  icon: Icons.my_location_rounded,
+                  icon: _isLocating
+                      ? Icons.location_searching_rounded
+                      : Icons.my_location_rounded,
                   onTap: () {
+                    if (_isLocating) return;
                     _mapController.move(_userLocation, 15.0);
+                    // Jika masih di posisi default, coba ambil ulang lokasi
+                    if (_userLocation == _telUCenter) {
+                      _startLocationTracking();
+                    }
                   },
                 ),
                 const SizedBox(height: 8),
