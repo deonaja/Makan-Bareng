@@ -27,7 +27,8 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
 
   int _maxParticipants = 4;
   DateTime _startTime = DateTime.now().add(const Duration(hours: 1));
-  final LatLng _selectedLocation = const LatLng(-6.9732, 107.6310);
+  LatLng _selectedLocation = const LatLng(-6.9732, 107.6310);
+  final MapController _mapController = MapController();
 
   @override
   void dispose() {
@@ -35,6 +36,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     _descriptionController.dispose();
     _locationNameController.dispose();
     _locationAddressController.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -211,54 +213,78 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                 },
               ),
               const SizedBox(height: 20),
-              Container(
-                height: 150,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: FlutterMap(
-                  options: MapOptions(
-                    initialCenter: _selectedLocation,
-                    initialZoom: 16.0,
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.none,
-                    ),
+              // Peta interaktif — tap untuk menandai lokasi
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.touch_app_rounded,
+                          size: 14, color: AppColors.textTertiary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Tap pada peta untuk menandai lokasi',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                    ],
                   ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                      subdomains: const ['a', 'b', 'c', 'd'],
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
                     ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: _selectedLocation,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      AppColors.primary.withValues(alpha: 0.5),
-                                  blurRadius: 8,
+                    clipBehavior: Clip.antiAlias,
+                    child: FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: _selectedLocation,
+                        initialZoom: 15.0,
+                        interactionOptions: const InteractionOptions(
+                          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                        ),
+                        onTap: (tapPosition, point) {
+                          setState(() => _selectedLocation = point);
+                        },
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                          subdomains: const ['a', 'b', 'c', 'd'],
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _selectedLocation,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.5),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
                                 ),
-                              ],
+                                child: const Icon(
+                                  Icons.restaurant_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
                             ),
-                            child: const Icon(
-                              Icons.restaurant_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
               Row(

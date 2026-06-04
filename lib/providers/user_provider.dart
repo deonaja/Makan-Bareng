@@ -1,26 +1,60 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../models/review_model.dart';
-import '../data/mock_data.dart';
+import '../services/auth_service.dart';
 
 class UserProvider extends ChangeNotifier {
-  List<UserModel> _users = [];
-  List<ReviewModel> _reviews = [];
+  final List<UserModel> _users = [];
+  final List<ReviewModel> _reviews = [];
+
+  // Mencegah duplikat fetch untuk uid yang sedang/sudah di-fetch
+  final Set<String> _pendingFetches = {};
+  final Set<String> _failedFetches = {};
 
   List<UserModel> get users => _users;
   List<ReviewModel> get reviews => _reviews;
 
-  UserProvider() {
-    _users = List.from(MockData.users);
-    _reviews = List.from(MockData.reviews);
-  }
-
+  /// Kembalikan user dari cache. Jika belum ada, trigger async fetch
+  /// dari Firestore — widget akan rebuild otomatis setelah data tiba.
   UserModel? getUserById(String userId) {
+    if (userId.isEmpty) return null;
     try {
       return _users.firstWhere((u) => u.uid == userId);
     } catch (_) {
+      _fetchIfMissing(userId);
       return null;
     }
+  }
+
+  void _fetchIfMissing(String userId) {
+    if (_pendingFetches.contains(userId) || _failedFetches.contains(userId)) {
+      return;
+    }
+    _pendingFetches.add(userId);
+    AuthService().getUserDocument(userId).then((user) {
+      _pendingFetches.remove(userId);
+      if (user != null && !_users.any((u) => u.uid == user.uid)) {
+        _users.add(user);
+        notifyListeners();
+      } else if (user == null) {
+        _failedFetches.add(userId);
+      }
+    }).catchError((_) {
+      _pendingFetches.remove(userId);
+      _failedFetches.add(userId);
+    });
+  }
+
+  /// Simpan / update user di cache (dipanggil setelah edit profil, dll.)
+  void cacheUser(UserModel user) {
+    final idx = _users.indexWhere((u) => u.uid == user.uid);
+    if (idx >= 0) {
+      _users[idx] = user;
+    } else {
+      _users.add(user);
+    }
+    _failedFetches.remove(user.uid);
+    notifyListeners();
   }
 
   List<ReviewModel> getReviewsForUser(String userId) {

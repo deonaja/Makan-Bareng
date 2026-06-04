@@ -123,11 +123,32 @@ class SessionService {
     required String userId,
   }) async {
     try {
-      await _sessions.doc(sessionId).update({
-        'participantIds': FieldValue.arrayRemove([userId]),
-        'currentParticipants': FieldValue.increment(-1),
-        'status': 'open',
-        'updatedAt': FieldValue.serverTimestamp(),
+      final sessionRef = _sessions.doc(sessionId);
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(sessionRef);
+        if (!snapshot.exists) throw Exception('Sesi tidak ditemukan');
+
+        final data = snapshot.data() as Map<String, dynamic>;
+        final List<String> participants =
+            List<String>.from(data['participantIds'] ?? []);
+        if (!participants.contains(userId)) {
+          throw Exception('Kamu tidak ada di sesi ini');
+        }
+
+        final int current = (data['currentParticipants'] as int?) ?? 1;
+        final String currentStatus = (data['status'] as String?) ?? 'open';
+        final int newCount = (current - 1).clamp(0, 9999);
+
+        // Hanya kembalikan ke 'open' jika sebelumnya 'full'.
+        // Jangan ubah status 'ongoing', 'completed', atau 'canceled'.
+        final String newStatus = currentStatus == 'full' ? 'open' : currentStatus;
+
+        transaction.update(sessionRef, {
+          'participantIds': FieldValue.arrayRemove([userId]),
+          'currentParticipants': newCount,
+          'status': newStatus,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
       });
     } catch (e) {
       throw Exception('Gagal leave sesi: $e');

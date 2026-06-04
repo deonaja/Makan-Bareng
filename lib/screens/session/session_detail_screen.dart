@@ -342,12 +342,26 @@ class SessionDetailScreen extends StatelessWidget {
                       CustomButton(
                         text: 'Keluar dari Sesi',
                         isOutlined: true,
-                        onPressed: () {
-                          sessionProvider.leaveSession(
+                        onPressed: () async {
+                          final ok = await sessionProvider.leaveSession(
                             sessionId: latestSession.sessionId,
                             userId: currentUserId,
                           );
-                          Navigator.pop(context);
+                          if (!context.mounted) return;
+                          if (ok) {
+                            Navigator.pop(context);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    sessionProvider.error ?? 'Gagal keluar dari sesi'),
+                                backgroundColor: AppColors.error,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                              ),
+                            );
+                          }
                         },
                       ),
                     if (isCreator) ...[
@@ -356,8 +370,22 @@ class SessionDetailScreen extends StatelessWidget {
                         isOutlined: true,
                         backgroundColor: AppColors.success,
                         textColor: AppColors.success,
-                        onPressed: () {
-                          sessionProvider.completeSession(latestSession.sessionId);
+                        onPressed: () async {
+                          final ok = await sessionProvider
+                              .completeSession(latestSession.sessionId);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(ok
+                                  ? 'Sesi selesai! ✅'
+                                  : sessionProvider.error ?? 'Gagal menyelesaikan sesi'),
+                              backgroundColor:
+                                  ok ? AppColors.success : AppColors.error,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
                         },
                       ),
                       const SizedBox(height: 12),
@@ -366,9 +394,24 @@ class SessionDetailScreen extends StatelessWidget {
                         isOutlined: true,
                         backgroundColor: AppColors.error,
                         textColor: AppColors.error,
-                        onPressed: () {
-                          sessionProvider.cancelSession(latestSession.sessionId);
-                          Navigator.pop(context);
+                        onPressed: () async {
+                          final ok = await sessionProvider
+                              .cancelSession(latestSession.sessionId);
+                          if (!context.mounted) return;
+                          if (ok) {
+                            Navigator.pop(context);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    sessionProvider.error ?? 'Gagal membatalkan sesi'),
+                                backgroundColor: AppColors.error,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                              ),
+                            );
+                          }
                         },
                       ),
                     ],
@@ -377,15 +420,18 @@ class SessionDetailScreen extends StatelessWidget {
                       latestSession.status == 'open') ...[
                     CustomButton(
                       text: 'Gabung Sesi 🙌',
-                      onPressed: () {
-                        sessionProvider.joinSession(
+                      onPressed: () async {
+                        final ok = await sessionProvider.joinSession(
                             sessionId: latestSession.sessionId,
                             userId: currentUserId);
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: const Text(
-                                'Berhasil bergabung! 🎉'),
-                            backgroundColor: AppColors.success,
+                            content: Text(ok
+                                ? 'Berhasil bergabung! 🎉'
+                                : sessionProvider.error ?? 'Gagal bergabung ke sesi'),
+                            backgroundColor:
+                                ok ? AppColors.success : AppColors.error,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
