@@ -24,11 +24,11 @@ class UserProvider extends ChangeNotifier {
   }
 
   List<ReviewModel> getReviewsForUser(String userId) {
-    return _reviews.where((r) => r.toUserId == userId).toList();
+    return _reviews.where((r) => r.revieweeId == userId).toList();
   }
 
   List<ReviewModel> getReviewsByUser(String userId) {
-    return _reviews.where((r) => r.fromUserId == userId).toList();
+    return _reviews.where((r) => r.reviewerId == userId).toList();
   }
 
   double getAverageRating(String userId) {
