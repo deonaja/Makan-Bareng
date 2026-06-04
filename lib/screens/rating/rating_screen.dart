@@ -9,8 +9,9 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/session_model.dart';
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/user_provider.dart';
+import '../../services/auth_service.dart';
 import '../../services/review_service.dart';
 import '../../widgets/avatar_widget.dart';
 import '../../widgets/custom_button.dart';
@@ -28,8 +29,10 @@ class _RatingScreenState extends State<RatingScreen> {
   final Map<String, double> _ratings = {};
   final Map<String, TextEditingController> _commentControllers = {};
   final Map<String, bool> _alreadyReviewed = {}; // track siapa yang sudah di-review
+  final Map<String, UserModel> _participantProfiles = {}; // real user profiles from Firestore
   bool _isSubmitting = false;
   bool _isCheckingStatus = true;
+  bool _isLoadingProfiles = true;
 
   // Ref: SPEC Section 8.5 — pakai service langsung, bukan lewat provider
   final ReviewService _reviewService = ReviewService();
@@ -49,6 +52,7 @@ class _RatingScreenState extends State<RatingScreen> {
     }
 
     _checkExistingReviews(currentUserId);
+    _loadParticipantProfiles(currentUserId);
   }
 
   /// Cek review yang sudah pernah dikirim agar tidak double rating.
@@ -76,6 +80,30 @@ class _RatingScreenState extends State<RatingScreen> {
     }
   }
 
+  /// Load real profiles from Firestore for all other participants.
+  Future<void> _loadParticipantProfiles(String currentUserId) async {
+    final authService = AuthService();
+    for (final userId in widget.session.participantIds) {
+      if (userId != currentUserId) {
+        try {
+          final profile = await authService.getUserDocument(userId);
+          if (profile != null && mounted) {
+            setState(() {
+              _participantProfiles[userId] = profile;
+            });
+          }
+        } catch (_) {
+          // Fallback to showing default/mock name if we fail to fetch from Firestore
+        }
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _isLoadingProfiles = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     for (final controller in _commentControllers.values) {
@@ -88,7 +116,6 @@ class _RatingScreenState extends State<RatingScreen> {
   /// Ref: SPEC Section 8.5 contoh pakai service langsung dari widget.
   Future<void> _submitRatings() async {
     final auth = context.read<AuthProvider>();
-    final userProvider = context.read<UserProvider>();
     final currentUser = auth.currentUser;
     if (currentUser == null) return;
 
@@ -115,7 +142,7 @@ class _RatingScreenState extends State<RatingScreen> {
     final List<String> gagal = [];
 
     for (final revieweeId in pendingReviews) {
-      final revieweeUser = userProvider.getUserById(revieweeId);
+      final revieweeUser = _participantProfiles[revieweeId];
       try {
         await _reviewService.submitReview(
           sessionId: widget.session.sessionId,
@@ -165,7 +192,6 @@ class _RatingScreenState extends State<RatingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = context.watch<UserProvider>();
     final auth = context.watch<AuthProvider>();
     final currentUserId = auth.currentUser?.uid ?? '';
 
@@ -178,7 +204,7 @@ class _RatingScreenState extends State<RatingScreen> {
       appBar: AppBar(
         title: const Text('Rating Peserta'),
       ),
-      body: _isCheckingStatus
+      body: _isCheckingStatus || _isLoadingProfiles
           ? const Center(child: CircularProgressIndicator())
           : Column(
         children: [
@@ -236,7 +262,7 @@ class _RatingScreenState extends State<RatingScreen> {
               itemCount: otherParticipants.length,
               itemBuilder: (context, index) {
                 final userId = otherParticipants[index];
-                final user = userProvider.getUserById(userId);
+                final user = _participantProfiles[userId];
                 final sudahDireview = _alreadyReviewed[userId] ?? false;
 
                 return Container(
@@ -260,6 +286,7 @@ class _RatingScreenState extends State<RatingScreen> {
                         children: [
                           AvatarWidget(
                             name: user?.name ?? 'Unknown',
+                            photoUrl: user?.photoUrl.isEmpty ?? true ? null : user?.photoUrl,
                             size: 44,
                           ),
                           const SizedBox(width: 12),

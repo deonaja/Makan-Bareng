@@ -1206,17 +1206,18 @@ service cloud.firestore {
     // ============================================
     // USERS COLLECTION
     // ============================================
-    // - User cuma boleh baca profil sendiri (full data termasuk email)
-    // - Untuk lihat profil user lain (nama + foto), pakai data DENORMALIZED 
-    //   yang sudah di-copy ke sessions/messages/reviews (lihat data model)
+    // - Semua user login boleh baca profil user lain (nama, foto, rating, dll)
     // - Admin bisa baca semua
     // - User cuma boleh edit profil sendiri
+    // - Tapi user lain boleh update averageRating dan totalReviews (untuk rating)
     // - Admin boleh edit/delete siapa aja
     
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if isAuthenticated();
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin() ||
+                    (request.resource.data.diff(resource.data).affectedKeys()
+                      .hasOnly(['averageRating', 'totalReviews']));
       allow delete: if isAdmin();
     }
     
