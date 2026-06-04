@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/restaurant_model.dart';
 import '../models/session_model.dart';
 import 'chat_service.dart';
 
@@ -205,5 +206,97 @@ class SessionService {
       if (!doc.exists) return null;
       return SessionModel.fromFirestore(doc);
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // One-time migration: perbaiki sesi lama yang koordinatnya masih di titik
+  // default hardcoded (-6.9732, 107.6310 — "Danau Galau").
+  //
+  // Hanya memperbaiki sesi milik [hostId] agar tidak melanggar Firestore rules.
+  // Cocokkan nama lokasi ke daftar resto preset; kalau tidak cocok, pakai
+  // resto pertama (koordinat tersebut memang lokasi Warung Nasi Ampera).
+  // -------------------------------------------------------------------------
+  Future<Map<String, int>> migrateDefaultLocations({
+    required String hostId,
+    required List<RestaurantModel> restaurants,
+  }) async {
+    const defaultLat = -6.9732;
+    const defaultLng = 107.6310;
+    const tolerance = 0.0001;
+
+    // Ambil semua sesi milik host ini
+    final snapshot = await _sessions
+        .where('hostId', isEqualTo: hostId)
+        .get();
+
+    int fixed = 0;
+    int skipped = 0;
+
+    final batch = _firestore.batch();
+
+    for (final doc in snapshot.docs) {
+      try {
+        final data = doc.data() as Map<String, dynamic>;
+        final loc = (data['location'] as Map<String, dynamic>?) ?? {};
+        final lat = ((loc['latitude']) ?? 0.0).toDouble();
+        final lng = ((loc['longitude']) ?? 0.0).toDouble();
+
+        // Lewati sesi yang koordinatnya sudah benar
+        final isDefault = (lat - defaultLat).abs() < tolerance &&
+            (lng - defaultLng).abs() < tolerance;
+        if (!isDefault) {
+          skipped++;
+          continue;
+        }
+
+        final rawName = ((loc['name'] ?? '') as String).toLowerCase().trim();
+
+        // Cari kecocokan nama resto
+        RestaurantModel? match;
+
+        // Pass 1 — exact atau contains
+        for (final r in restaurants) {
+          final n = r.name.toLowerCase();
+          if (rawName == n || rawName.contains(n) || n.contains(rawName)) {
+            match = r;
+            break;
+          }
+        }
+
+        // Pass 2 — kata-kata kunci (min 4 huruf)
+        if (match == null && rawName.isNotEmpty) {
+          final words = rawName
+              .split(RegExp(r'\s+'))
+              .where((w) => w.length >= 4)
+              .toList();
+          for (final r in restaurants) {
+            final n = r.name.toLowerCase();
+            if (words.any((w) => n.contains(w))) {
+              match = r;
+              break;
+            }
+          }
+        }
+
+        // Fallback — resto pertama (koordinatnya memang di sana)
+        match ??= restaurants.first;
+
+        batch.update(doc.reference, {
+          'location': {
+            'name': match.name,
+            'address': match.address,
+            'latitude': match.location.latitude,
+            'longitude': match.location.longitude,
+          },
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        fixed++;
+      } catch (_) {
+        skipped++;
+      }
+    }
+
+    if (fixed > 0) await batch.commit();
+    return {'fixed': fixed, 'skipped': skipped};
   }
 }

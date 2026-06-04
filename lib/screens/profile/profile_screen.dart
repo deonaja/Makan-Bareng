@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../data/mock_data.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/avatar_widget.dart';
 import '../auth/login_screen.dart';
-import 'edit_profile_screen.dart';
 import '../session/session_detail_screen.dart';
-import 'package:intl/intl.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -218,6 +220,12 @@ class ProfileScreen extends StatelessWidget {
                     title: 'Bantuan',
                     onTap: () {},
                   ),
+                  _MenuItem(
+                    icon: Icons.map_outlined,
+                    title: 'Perbaiki Lokasi Sesi',
+                    subtitle: 'Perbaiki sesi lama yang lokasinya salah di peta',
+                    onTap: () => _runLocationMigration(context, user.uid),
+                  ),
                   const SizedBox(height: 8),
                   _MenuItem(
                     icon: Icons.logout_rounded,
@@ -281,6 +289,65 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _runLocationMigration(BuildContext context, String uid) async {
+    // Konfirmasi dulu
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Perbaiki Lokasi?', style: AppTextStyles.heading4),
+        content: Text(
+          'Sesi yang kamu buat dengan lokasi salah (titik di danau) '
+          'akan diperbaiki ke lokasi resto yang sesuai.\n\n'
+          'Proses ini hanya memengaruhi sesi milikmu.',
+          style: AppTextStyles.bodyMedium
+              .copyWith(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Batal',
+                style: AppTextStyles.bodyMedium
+                    .copyWith(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Perbaiki',
+                style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.primary, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !context.mounted) return;
+
+    final sessionProvider = context.read<SessionProvider>();
+    final result = await sessionProvider.migrateDefaultLocations(
+      hostId: uid,
+      restaurants: MockData.restaurants,
+    );
+
+    if (!context.mounted) return;
+
+    final fixed = result['fixed'] ?? 0;
+    final skipped = result['skipped'] ?? 0;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          fixed > 0
+              ? '✅ $fixed sesi berhasil diperbaiki, $skipped sudah benar'
+              : 'Semua sesi lokasinya sudah benar ($skipped sesi)',
+        ),
+        backgroundColor: fixed > 0 ? AppColors.success : AppColors.info,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
