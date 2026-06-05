@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../models/session_model.dart';
+import 'preferences_service.dart';
 import 'session_service.dart';
 
 /// Handles local notifications for session updates.
@@ -44,6 +45,10 @@ class NotificationService {
     required String title,
     required String body,
   }) async {
+    // Cek apakah notifikasi diizinkan user
+    final enabled = await PreferencesService().isNotificationEnabled();
+    if (!enabled) return;
+
     if (!_isInitialized) {
       await init();
     }

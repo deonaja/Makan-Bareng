@@ -104,7 +104,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     if (!mounted) return;
 
     if (sessionId != null) {
-      _showSnackBar('Sesi makan dibuat! 🎉', AppColors.success);
+      _showSnackBar('Sesi makan berhasil dibuat', AppColors.success);
       Navigator.pop(context);
     } else {
       _showSnackBar(
@@ -150,7 +150,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
               CustomTextField(
                 controller: _titleController,
                 labelText: 'Judul Sesi',
-                hintText: 'Contoh: Makan Siang Bareng 🍛',
+                hintText: 'Contoh: Makan Siang Bareng',
                 prefixIcon: Icons.title_rounded,
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Judul tidak boleh kosong' : null,
@@ -168,7 +168,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
               const SizedBox(height: 24),
 
               // ── Pilih Tempat Makan ─────────────────────────────────
-              Text('Pilih Tempat Makan', style: AppTextStyles.labelLarge),
+              Text('Rekomendasi Tempat Makan', style: AppTextStyles.labelLarge),
               const SizedBox(height: 12),
 
               SizedBox(
@@ -423,7 +423,8 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
 
               // ── Tombol Buat ────────────────────────────────────────
               CustomButton(
-                text: 'Buat Sesi Makan 🍽️',
+                text: 'Buat Sesi Makan',
+                icon: Icons.restaurant_rounded,
                 isLoading: sessionProvider.isLoading,
                 onPressed: () => _createSession(),
               ),
