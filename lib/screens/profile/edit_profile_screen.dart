@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../data/mock_data.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../widgets/avatar_widget.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -18,6 +18,7 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _bioController;
+  late TextEditingController _prefController;
   late List<String> _selectedPreferences;
 
   @override
@@ -26,6 +27,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final user = context.read<AuthProvider>().currentUser!;
     _nameController = TextEditingController(text: user.name);
     _bioController = TextEditingController(text: user.bio);
+    _prefController = TextEditingController();
     _selectedPreferences = List.from(user.foodPreferences);
   }
 
@@ -33,38 +35,67 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _bioController.dispose();
+    _prefController.dispose();
     super.dispose();
   }
 
-  void _togglePreference(String pref) {
+  void _addPreference() {
+    final text = _prefController.text.trim();
+    if (text.isNotEmpty && !_selectedPreferences.contains(text)) {
+      setState(() {
+        _selectedPreferences.add(text);
+        _prefController.clear();
+      });
+    }
+  }
+
+  void _removePreference(String pref) {
     setState(() {
-      if (_selectedPreferences.contains(pref)) {
-        _selectedPreferences.remove(pref);
-      } else {
-        _selectedPreferences.add(pref);
-      }
+      _selectedPreferences.remove(pref);
     });
   }
 
-  void _saveProfile() {
+  bool _isLoading = false;
+
+  Future<void> _saveProfile() async {
+    setState(() => _isLoading = true);
     final auth = context.read<AuthProvider>();
+    final userProvider = context.read<UserProvider>();
+    
     final updatedUser = auth.currentUser!.copyWith(
       name: _nameController.text.trim(),
       bio: _bioController.text.trim(),
       foodPreferences: _selectedPreferences,
     );
-    auth.updateProfile(updatedUser);
+    
+    try {
+      await userProvider.updateUserProfile(user: updatedUser);
+      auth.updateProfile(updatedUser);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Profil berhasil diperbarui! ✅'),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Profil berhasil diperbarui! ✅'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
 
-    Navigator.pop(context);
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -143,52 +174,64 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   style: AppTextStyles.labelLarge),
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: MockData.foodPreferenceOptions.map((pref) {
-                final isSelected = _selectedPreferences.contains(pref);
-                return GestureDetector(
-                  onTap: () => _togglePreference(pref),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.primary.withValues(alpha: 0.15)
-                          : AppColors.surface,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.border,
-                      ),
-                    ),
-                    child: Text(
+            Row(
+              children: [
+                Expanded(
+                  child: CustomTextField(
+                    controller: _prefController,
+                    hintText: 'Tambah (mis: Nasi Padang)',
+                    prefixIcon: Icons.fastfood_outlined,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    onPressed: _addPreference,
+                    icon: const Icon(Icons.add),
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _selectedPreferences.map((pref) {
+                  return Chip(
+                    label: Text(
                       pref,
                       style: AppTextStyles.bodySmall.copyWith(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                    side: BorderSide(color: AppColors.primary),
+                    deleteIconColor: AppColors.primary,
+                    onDeleted: () => _removePreference(pref),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
             const SizedBox(height: 32),
 
             // Save button
-            CustomButton(
-              text: 'Simpan Perubahan',
-              onPressed: _saveProfile,
-            ),
+            _isLoading 
+              ? const CircularProgressIndicator()
+              : CustomButton(
+                  text: 'Simpan Perubahan',
+                  onPressed: _saveProfile,
+                ),
             const SizedBox(height: 20),
           ],
         ),
