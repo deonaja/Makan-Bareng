@@ -53,21 +53,35 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _startLocationTracking() async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return;
+      if (!serviceEnabled) {
+        _showLocationSnackBar(
+            'GPS tidak aktif. Aktifkan lokasi di pengaturan perangkat.');
+        return;
+      }
 
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) return;
+        if (permission == LocationPermission.denied) {
+          _showLocationSnackBar('Izin lokasi ditolak. Peta menggunakan lokasi default.');
+          return;
+        }
       }
-      if (permission == LocationPermission.deniedForever) return;
+      if (permission == LocationPermission.deniedForever) {
+        _showLocationSnackBar(
+            'Izin lokasi diblokir. Buka Pengaturan > Izin Aplikasi untuk mengaktifkan.');
+        return;
+      }
 
       if (!mounted) return;
       setState(() => _isLocating = true);
 
       // Posisi awal — langsung pindahkan kamera
       final initial = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
       );
       if (!mounted) return;
       final initialLatLng = LatLng(initial.latitude, initial.longitude);
@@ -93,12 +107,38 @@ class _HomeScreenState extends State<HomeScreen> {
           context.read<SessionProvider>()
               .setUserLocation(pos.latitude, pos.longitude);
         },
-        onError: (_) {}, // Abaikan error stream — posisi terakhir tetap dipakai
+        onError: (_) {},
       );
-    } catch (_) {
-      if (mounted) setState(() => _isLocating = false);
-      // Gagal ambil lokasi, dot biru tetap di Tel-U sebagai fallback
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLocating = false);
+      // Pada emulator, GPS biasanya tidak tersedia — tampilkan info
+      if (e.toString().contains('timeout') || e.toString().contains('TimeLimit')) {
+        _showLocationSnackBar(
+            'Gagal mendapatkan lokasi (timeout). Pastikan GPS aktif atau coba di perangkat nyata.');
+      }
+      // Error lain: silent fallback ke Tel-U
     }
+  }
+
+  void _showLocationSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.location_off_rounded, color: Colors.white, size: 18),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message, style: const TextStyle(fontSize: 12))),
+          ],
+        ),
+        backgroundColor: AppColors.surface,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   void _showFilterSheet() {
@@ -303,108 +343,136 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // My location button
+          // Tombol "My Location" — di kanan, di atas info bar / panel
           Positioned(
             right: 16,
-            bottom: _showSessionList ? 340 : 72,
-            child: Column(
-              children: [
-                _MapButton(
-                  icon: _isLocating
-                      ? Icons.location_searching_rounded
-                      : Icons.my_location_rounded,
-                  onTap: () {
-                    if (_isLocating) return;
-                    _mapController.move(_userLocation, 15.0);
-                    // Jika masih di posisi default, coba ambil ulang lokasi
-                    if (_userLocation == _telUCenter) {
-                      _startLocationTracking();
-                    }
-                  },
-                ),
-                const SizedBox(height: 8),
-                _MapButton(
-                  icon: _showSessionList
-                      ? Icons.expand_more_rounded
-                      : Icons.expand_less_rounded,
-                  onTap: () {
-                    setState(() => _showSessionList = !_showSessionList);
-                  },
-                ),
-              ],
+            bottom: _showSessionList ? 348 : 108,
+            child: _MapButton(
+              icon: _isLocating
+                  ? Icons.location_searching_rounded
+                  : Icons.my_location_rounded,
+              onTap: () {
+                if (_isLocating) return;
+                _mapController.move(_userLocation, 15.0);
+                if (_userLocation == _telUCenter) _startLocationTracking();
+              },
             ),
           ),
 
-          // Bottom session list
+          // Panel sesi bawah — slide up/down
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutCubic,
             left: 0,
             right: 0,
-            bottom: _showSessionList ? 0 : -250,
+            bottom: _showSessionList ? 0 : -320,
             child: Container(
               height: 320,
               decoration: BoxDecoration(
                 color: AppColors.backgroundLight,
                 borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
+                    const BorderRadius.vertical(top: Radius.circular(28)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, -5),
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 24,
+                    offset: const Offset(0, -4),
                   ),
                 ],
               ),
               child: Column(
                 children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 12),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceLight,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+                  // Drag handle + header row
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 14, 12, 0),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          sessionProvider.searchQuery.isNotEmpty
-                              ? 'Hasil Pencarian'
-                              : 'Sesi Makan Terdekat',
-                          style: AppTextStyles.heading4,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Drag handle kecil di atas teks
+                              Center(
+                                child: Container(
+                                  width: 36,
+                                  height: 3,
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceLight,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                sessionProvider.searchQuery.isNotEmpty
+                                    ? 'Hasil Pencarian'
+                                    : 'Sesi Makan Aktif',
+                                style: AppTextStyles.heading4,
+                              ),
+                            ],
+                          ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '${sessions.length} aktif',
-                            style: AppTextStyles.labelMedium.copyWith(
-                              color: AppColors.primary,
+                        // Badge count + tombol tutup
+                        Row(
+                          children: [
+                            if (sessions.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${sessions.length}',
+                                  style: AppTextStyles.labelMedium.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 26),
+                              color: AppColors.textTertiary,
+                              padding: EdgeInsets.zero,
+                              onPressed: () =>
+                                  setState(() => _showSessionList = false),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
                   ),
+
+                  const SizedBox(height: 4),
+
+                  // Konten: list atau empty state
                   if (sessions.isEmpty)
                     Expanded(
                       child: Center(
-                        child: Text(
-                          'Tidak ada sesi yang ditemukan',
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.restaurant_outlined,
+                              size: 40,
+                              color: AppColors.textTertiary
+                                  .withValues(alpha: 0.4),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              sessionProvider.searchQuery.isNotEmpty
+                                  ? 'Tidak ada sesi yang cocok'
+                                  : 'Belum ada sesi aktif saat ini',
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.textTertiary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     )
@@ -412,7 +480,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        padding:
+                            const EdgeInsets.fromLTRB(16, 4, 16, 16),
                         itemCount: sessions.length,
                         itemBuilder: (context, index) {
                           return _SessionCard(
@@ -435,57 +504,91 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Quick info bar (when session list is hidden)
+          // Info bar bawah — full width, berisi status sesi + tombol expand
           if (!_showSessionList)
             Positioned(
               left: 16,
-              right: 76,
-              bottom: 8,
+              right: 16,
+              bottom: 16,
               child: GestureDetector(
-                onTap: () {
-                  setState(() => _showSessionList = true);
-                },
+                onTap: () => setState(() => _showSessionList = true),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+                      horizontal: 18, vertical: 14),
                   decoration: BoxDecoration(
-                    color: AppColors.surface.withValues(alpha: 0.95),
-                    borderRadius: BorderRadius.circular(16),
+                    color: AppColors.surface.withValues(alpha: 0.97),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: AppColors.border.withValues(alpha: 0.5),
+                      color: AppColors.border.withValues(alpha: 0.6),
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
-                      Container(
+                      // Dot indikator: hijau jika ada sesi, abu jika kosong
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: AppColors.success,
+                          color: sessions.isNotEmpty
+                              ? AppColors.success
+                              : AppColors.textTertiary,
                           shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.success.withValues(alpha: 0.5),
-                              blurRadius: 6,
+                          boxShadow: sessions.isNotEmpty
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.success
+                                        .withValues(alpha: 0.5),
+                                    blurRadius: 6,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              sessions.isEmpty
+                                  ? 'Belum ada sesi makan aktif'
+                                  : '${sessions.length} sesi makan aktif',
+                              style: AppTextStyles.labelMedium.copyWith(
+                                color: sessions.isEmpty
+                                    ? AppColors.textTertiary
+                                    : AppColors.textPrimary,
+                              ),
                             ),
+                            if (sessions.isNotEmpty)
+                              Text(
+                                'Tap untuk lihat daftar',
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.textTertiary,
+                                ),
+                              ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          '${sessions.length} sesi makan aktif di sekitarmu',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.textPrimary,
-                          ),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                      ),
-                      Icon(
-                        Icons.arrow_upward_rounded,
-                        color: AppColors.primary,
-                        size: 18,
+                        child: Icon(
+                          Icons.keyboard_arrow_up_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
                       ),
                     ],
                   ),
