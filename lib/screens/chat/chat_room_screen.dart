@@ -23,6 +23,22 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
 
+  /// Chat read-only jika sesi dibatalkan, atau sudah melewati 7 hari
+  /// setelah sesi diselesaikan.
+  bool get _isChatReadOnly {
+    final s = widget.session;
+    if (s.status == 'canceled') return true;
+    final completedAt = s.completedAt;
+    if (completedAt == null) return false;
+    return completedAt.add(const Duration(days: 7)).isBefore(DateTime.now());
+  }
+
+  bool get _isChatExpired {
+    final completedAt = widget.session.completedAt;
+    if (completedAt == null) return false;
+    return completedAt.add(const Duration(days: 7)).isBefore(DateTime.now());
+  }
+
   @override
   void initState() {
     super.initState();
@@ -155,6 +171,43 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       ),
       body: Column(
         children: [
+          // Banner chat kadaluarsa / dibatalkan
+          if (_isChatReadOnly)
+            Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: _isChatExpired
+                  ? AppColors.textTertiary.withValues(alpha: 0.15)
+                  : AppColors.error.withValues(alpha: 0.12),
+              child: Row(
+                children: [
+                  Icon(
+                    _isChatExpired
+                        ? Icons.lock_clock_outlined
+                        : Icons.cancel_outlined,
+                    size: 16,
+                    color: _isChatExpired
+                        ? AppColors.textTertiary
+                        : AppColors.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _isChatExpired
+                          ? 'Masa chat telah berakhir (lebih dari 7 hari). Pesan tidak bisa dikirim.'
+                          : 'Sesi ini dibatalkan. Pesan tidak bisa dikirim.',
+                      style: AppTextStyles.caption.copyWith(
+                        color: _isChatExpired
+                            ? AppColors.textTertiary
+                            : AppColors.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Messages — StreamBuilder untuk realtime (Section 11.1)
           Expanded(
             child: StreamBuilder<List<ChatMessageModel>>(
@@ -356,7 +409,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             ),
           ),
 
-          // Input area
+          // Input area — hidden saat chat read-only
+          if (!_isChatReadOnly)
           Container(
             padding: EdgeInsets.fromLTRB(
               12,

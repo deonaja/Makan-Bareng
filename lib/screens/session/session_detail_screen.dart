@@ -327,7 +327,8 @@ class SessionDetailScreen extends StatelessWidget {
                   // Action buttons
                   if (isParticipant && !isCompleted) ...[
                     CustomButton(
-                      text: 'Buka Chat Grup 💬',
+                      text: 'Buka Chat Grup',
+                      icon: Icons.chat_bubble_outline_rounded,
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -366,7 +367,7 @@ class SessionDetailScreen extends StatelessWidget {
                       ),
                     if (isCreator) ...[
                       CustomButton(
-                        text: 'Selesaikan Sesi ✅',
+                        text: 'Selesaikan Sesi',
                         isOutlined: true,
                         backgroundColor: AppColors.success,
                         textColor: AppColors.success,
@@ -377,7 +378,7 @@ class SessionDetailScreen extends StatelessWidget {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(ok
-                                  ? 'Sesi selesai! ✅'
+                                  ? 'Sesi berhasil diselesaikan'
                                   : sessionProvider.error ?? 'Gagal menyelesaikan sesi'),
                               backgroundColor:
                                   ok ? AppColors.success : AppColors.error,
@@ -419,7 +420,8 @@ class SessionDetailScreen extends StatelessWidget {
                       !latestSession.isFull &&
                       latestSession.status == 'open') ...[
                     CustomButton(
-                      text: 'Gabung Sesi 🙌',
+                      text: 'Gabung Sesi',
+                      icon: Icons.group_add_rounded,
                       onPressed: () async {
                         final ok = await sessionProvider.joinSession(
                             sessionId: latestSession.sessionId,
@@ -428,7 +430,7 @@ class SessionDetailScreen extends StatelessWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(ok
-                                ? 'Berhasil bergabung! 🎉'
+                                ? 'Berhasil bergabung ke sesi'
                                 : sessionProvider.error ?? 'Gagal bergabung ke sesi'),
                             backgroundColor:
                                 ok ? AppColors.success : AppColors.error,
@@ -442,7 +444,8 @@ class SessionDetailScreen extends StatelessWidget {
                     ),
                   ] else if (isCompleted && isParticipant) ...[
                     CustomButton(
-                      text: 'Beri Rating Peserta ⭐',
+                      text: 'Beri Rating Peserta',
+                      icon: Icons.star_outline_rounded,
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(

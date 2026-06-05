@@ -145,7 +145,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final sessionProvider = context.watch<SessionProvider>();
-    final sessions = sessionProvider.filteredSessions;
+    final sessions = sessionProvider.filteredSessions
+        .where((s) => s.scheduledAt
+            .add(Duration(minutes: s.durationMinutes))
+            .isAfter(DateTime.now()))
+        .toList();
 
     return Scaffold(
       body: Stack(
@@ -302,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // My location button
           Positioned(
             right: 16,
-            bottom: _showSessionList ? 340 : 100,
+            bottom: _showSessionList ? 340 : 72,
             child: Column(
               children: [
                 _MapButton(

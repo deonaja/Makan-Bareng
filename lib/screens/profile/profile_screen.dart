@@ -8,12 +8,31 @@ import '../../data/mock_data.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/avatar_widget.dart';
+import '../../services/preferences_service.dart';
 import '../auth/login_screen.dart';
 import '../session/session_detail_screen.dart';
 import 'edit_profile_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _notifEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifSetting();
+  }
+
+  Future<void> _loadNotifSetting() async {
+    final enabled = await PreferencesService().isNotificationEnabled();
+    if (mounted) setState(() => _notifEnabled = enabled);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,12 +55,6 @@ class ProfileScreen extends StatelessWidget {
             automaticallyImplyLeading: false,
             backgroundColor: AppColors.background,
             title: Text('Profile', style: AppTextStyles.heading3),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.settings_rounded, size: 22),
-                onPressed: () {},
-              ),
-            ],
           ),
           SliverToBoxAdapter(
             child: Padding(
@@ -210,15 +223,90 @@ class ProfileScreen extends StatelessWidget {
                           context, createdSessions, joinedSessions);
                     },
                   ),
-                  _MenuItem(
-                    icon: Icons.notifications_outlined,
-                    title: 'Notifikasi',
-                    onTap: () {},
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(Icons.notifications_outlined,
+                                size: 20, color: AppColors.textSecondary),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Text('Notifikasi',
+                                style: AppTextStyles.bodyMedium
+                                    .copyWith(color: AppColors.textPrimary)),
+                          ),
+                          Switch(
+                            value: _notifEnabled,
+                            onChanged: (val) async {
+                              setState(() => _notifEnabled = val);
+                              await PreferencesService()
+                                  .setNotificationEnabled(val);
+                            },
+                            activeThumbColor: AppColors.primary,
+                            activeTrackColor:
+                                AppColors.primary.withValues(alpha: 0.3),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   _MenuItem(
                     icon: Icons.help_outline_rounded,
                     title: 'Bantuan',
-                    onTap: () {},
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: AppColors.surface,
+                          title: Text('Tentang Developer',
+                              style: AppTextStyles.heading4),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('MakanBareng v1.0.0',
+                                  style: AppTextStyles.labelLarge),
+                              const SizedBox(height: 12),
+                              Text('Tim Pengembang:',
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                      color: AppColors.textTertiary)),
+                              const SizedBox(height: 6),
+                              _DevRow('Made Naradeon H.P.', 'Home & Map'),
+                              _DevRow('Revandi Akbar', 'Rating & Review'),
+                              _DevRow('Naemu Enggar', 'Chat & Session'),
+                              _DevRow('Muhammad Ihsan', 'Profile & Admin'),
+                              _DevRow('Saladin Setyo H.', 'Auth & Core'),
+                              const SizedBox(height: 12),
+                              Text(
+                                  'Mata Kuliah: Aplikasi Perangkat Bergerak',
+                                  style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.textTertiary)),
+                              Text('Telkom University, 2025',
+                                  style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.textTertiary)),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: Text('Tutup',
+                                  style: AppTextStyles.bodyMedium
+                                      .copyWith(color: AppColors.primary)),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                   _MenuItem(
                     icon: Icons.map_outlined,
@@ -341,7 +429,7 @@ class ProfileScreen extends StatelessWidget {
       SnackBar(
         content: Text(
           fixed > 0
-              ? '✅ $fixed sesi berhasil diperbaiki, $skipped sudah benar'
+              ? '$fixed sesi berhasil diperbaiki, $skipped sudah benar'
               : 'Semua sesi lokasinya sudah benar ($skipped sesi)',
         ),
         backgroundColor: fixed > 0 ? AppColors.success : AppColors.info,
@@ -582,6 +670,28 @@ class _StatCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DevRow extends StatelessWidget {
+  final String name;
+  final String role;
+  const _DevRow(this.name, this.role);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(name, style: AppTextStyles.bodySmall),
+          Text(role,
+              style: AppTextStyles.caption
+                  .copyWith(color: AppColors.textTertiary)),
+        ],
       ),
     );
   }

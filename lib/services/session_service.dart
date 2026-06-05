@@ -57,7 +57,7 @@ class SessionService {
       try {
         await ChatService().sendSystemMessage(
           sessionId: docRef.id,
-          text: '🍽️ Sesi "$title" telah dibuat. Selamat datang!',
+          text: 'Sesi "$title" telah dibuat. Selamat datang!',
         );
       } catch (_) {
         // Non-critical — gagal buat pesan sistem tidak batalkan sesi
