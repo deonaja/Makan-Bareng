@@ -261,8 +261,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   _MenuItem(
-                    icon: Icons.help_outline_rounded,
-                    title: 'Bantuan',
+                    icon: Icons.info_outline_rounded,
+                    title: 'Tentang',
                     onTap: () {
                       showDialog(
                         context: context,
