@@ -82,6 +82,7 @@ class ReviewService {
         transaction.update(revieweeRef, {
           'averageRating': double.parse(newAvg.toStringAsFixed(1)),
           'totalReviews': newTotal,
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       });
     } catch (e) {

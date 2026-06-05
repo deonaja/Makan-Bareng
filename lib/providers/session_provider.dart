@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import '../models/restaurant_model.dart';
 import '../models/session_model.dart';
 import '../services/session_service.dart';
 
@@ -218,6 +219,30 @@ class SessionProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  /// Perbaiki sesi lama yang koordinatnya masih di titik default (Danau Galau).
+  /// Hanya memperbaiki sesi milik [hostId].
+  Future<Map<String, int>> migrateDefaultLocations({
+    required String hostId,
+    required List<RestaurantModel> restaurants,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final result = await _service.migrateDefaultLocations(
+        hostId: hostId,
+        restaurants: restaurants,
+      );
+      return result;
+    } catch (e) {
+      _error = e.toString();
+      return {'fixed': 0, 'skipped': 0};
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   @override
