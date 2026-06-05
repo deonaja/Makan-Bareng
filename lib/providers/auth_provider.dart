@@ -12,9 +12,16 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   StreamSubscription<User?>? _authSubscription;
 
+  /// True setelah Firebase Auth & Firestore selesai menentukan status login
+  /// pertama kali (termasuk restore sesi dari storage lokal).
+  /// Splash screen menunggu flag ini sebelum navigasi agar tidak
+  /// keliru mengarahkan ke LoginScreen saat user sudah pernah login.
+  bool _isInitialAuthComplete = false;
+
   UserModel? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _currentUser != null;
+  bool get isInitialAuthComplete => _isInitialAuthComplete;
   String? get errorMessage => _errorMessage;
 
   AuthProvider() {
@@ -25,16 +32,18 @@ class AuthProvider extends ChangeNotifier {
     _authSubscription = _authService.authStateChanges().listen((firebaseUser) async {
       if (firebaseUser == null) {
         _currentUser = null;
+        _isInitialAuthComplete = true;
         notifyListeners();
         return;
       }
 
-      // User baru login — ambil dokumen Firestore-nya.
+      // User baru login / restore sesi — ambil dokumen Firestore-nya.
       try {
         _currentUser = await _authService.getUserDocument(firebaseUser.uid);
       } catch (_) {
         _currentUser = null;
       }
+      _isInitialAuthComplete = true;
       notifyListeners();
     });
   }

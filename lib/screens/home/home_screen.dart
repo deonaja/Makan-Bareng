@@ -53,21 +53,35 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _startLocationTracking() async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return;
+      if (!serviceEnabled) {
+        _showLocationSnackBar(
+            'GPS tidak aktif. Aktifkan lokasi di pengaturan perangkat.');
+        return;
+      }
 
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) return;
+        if (permission == LocationPermission.denied) {
+          _showLocationSnackBar('Izin lokasi ditolak. Peta menggunakan lokasi default.');
+          return;
+        }
       }
-      if (permission == LocationPermission.deniedForever) return;
+      if (permission == LocationPermission.deniedForever) {
+        _showLocationSnackBar(
+            'Izin lokasi diblokir. Buka Pengaturan > Izin Aplikasi untuk mengaktifkan.');
+        return;
+      }
 
       if (!mounted) return;
       setState(() => _isLocating = true);
 
       // Posisi awal — langsung pindahkan kamera
       final initial = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
       );
       if (!mounted) return;
       final initialLatLng = LatLng(initial.latitude, initial.longitude);
@@ -93,12 +107,38 @@ class _HomeScreenState extends State<HomeScreen> {
           context.read<SessionProvider>()
               .setUserLocation(pos.latitude, pos.longitude);
         },
-        onError: (_) {}, // Abaikan error stream — posisi terakhir tetap dipakai
+        onError: (_) {},
       );
-    } catch (_) {
-      if (mounted) setState(() => _isLocating = false);
-      // Gagal ambil lokasi, dot biru tetap di Tel-U sebagai fallback
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLocating = false);
+      // Pada emulator, GPS biasanya tidak tersedia — tampilkan info
+      if (e.toString().contains('timeout') || e.toString().contains('TimeLimit')) {
+        _showLocationSnackBar(
+            'Gagal mendapatkan lokasi (timeout). Pastikan GPS aktif atau coba di perangkat nyata.');
+      }
+      // Error lain: silent fallback ke Tel-U
     }
+  }
+
+  void _showLocationSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.location_off_rounded, color: Colors.white, size: 18),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message, style: const TextStyle(fontSize: 12))),
+          ],
+        ),
+        backgroundColor: AppColors.surface,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   void _showFilterSheet() {
@@ -303,10 +343,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Tombol "My Location" — selalu di kanan atas info bar
+          // Tombol "My Location" — di kanan, di atas info bar / panel
           Positioned(
             right: 16,
-            bottom: _showSessionList ? 344 : 80,
+            bottom: _showSessionList ? 348 : 108,
             child: _MapButton(
               icon: _isLocating
                   ? Icons.location_searching_rounded

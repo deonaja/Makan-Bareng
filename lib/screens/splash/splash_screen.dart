@@ -20,6 +20,11 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
+  /// True setelah minimum splash time (animasi selesai)
+  bool _minTimeElapsed = false;
+  /// Cegah double-navigate
+  bool _hasNavigated = false;
+
   @override
   void initState() {
     super.initState();
@@ -43,26 +48,28 @@ class _SplashScreenState extends State<SplashScreen>
     _fadeController.forward();
     _scaleController.forward();
 
-    _navigateToNext();
+    // Minimum 2 detik untuk splash animation, lalu cek auth
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _minTimeElapsed = true);
+    });
   }
 
-  Future<void> _navigateToNext() async {
-    await Future.delayed(const Duration(seconds: 3));
-    if (!mounted) return;
+  void _tryNavigate(AuthProvider auth) {
+    if (_hasNavigated || !_minTimeElapsed || !auth.isInitialAuthComplete) return;
+    _hasNavigated = true;
 
-    final authProvider = context.read<AuthProvider>();
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            authProvider.isLoggedIn
-                ? const MainNavigation()
-                : const LoginScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 800),
-      ),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              auth.isLoggedIn ? const MainNavigation() : const LoginScreen(),
+          transitionsBuilder: (context, anim, _, child) =>
+              FadeTransition(opacity: anim, child: child),
+          transitionDuration: const Duration(milliseconds: 600),
+        ),
+      );
+    });
   }
 
   @override
@@ -74,6 +81,10 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Watch AuthProvider — rebuild saat isInitialAuthComplete berubah
+    final auth = context.watch<AuthProvider>();
+    _tryNavigate(auth);
+
     return Scaffold(
       body: Container(
         width: double.infinity,
