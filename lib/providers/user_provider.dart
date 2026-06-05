@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../models/review_model.dart';
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 
 class UserProvider extends ChangeNotifier {
+  final UserService _userService = UserService();
+
   final List<UserModel> _users = [];
   final List<ReviewModel> _reviews = [];
 
@@ -80,5 +83,26 @@ class UserProvider extends ChangeNotifier {
   void addMultipleReviews(List<ReviewModel> newReviews) {
     _reviews.addAll(newReviews);
     notifyListeners();
+  }
+
+  Future<void> updateUserProfile({
+    required UserModel user,
+  }) async {
+    try {
+      await _userService.updateUserProfile(
+        name: user.name,
+        bio: user.bio,
+        foodPreferences: user.foodPreferences,
+        photoUrl: user.photoUrl,
+      );
+      // Update locally if the user is in the list
+      final index = _users.indexWhere((u) => u.uid == user.uid);
+      if (index != -1) {
+        _users[index] = user;
+        notifyListeners();
+      }
+    } catch (e) {
+      rethrow;
+    }
   }
 }
