@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/restaurant_provider.dart';
+import 'restaurant_form_screen.dart';
 
 class RestaurantListScreen extends StatelessWidget {
   const RestaurantListScreen({super.key});
@@ -44,7 +45,14 @@ class RestaurantListScreen extends StatelessWidget {
                       IconButton(
                         icon: const Icon(Icons.edit),
                         onPressed: () {
-                          // TODO: buka form edit restoran
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => RestaurantFormScreen(
+                                restaurantId: restaurantId,
+                                initialData: data,
+                              ),
+                            ),
+                          );
                         },
                       ),
                       IconButton(
@@ -67,7 +75,11 @@ class RestaurantListScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: buka form tambah restoran
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const RestaurantFormScreen(),
+            ),
+          );
         },
         child: const Icon(Icons.add),
       ),

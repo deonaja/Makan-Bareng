@@ -37,4 +37,9 @@ class UserService {
       throw Exception("Gagal ambil profil: $e");
     }
   }
+
+  /// Ambil stream daftar semua user
+  Stream<QuerySnapshot> getUsersStream() {
+    return _firestore.collection('users').orderBy('name').snapshots();
+  }
 }

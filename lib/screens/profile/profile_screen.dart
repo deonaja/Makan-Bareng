@@ -11,6 +11,7 @@ import '../../widgets/avatar_widget.dart';
 import '../../services/preferences_service.dart';
 import '../auth/login_screen.dart';
 import '../session/session_detail_screen.dart';
+import '../admin/admin_dashboard_screen.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -202,6 +203,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
 
                   // Menu items
+                  if (user.isAdmin)
+                    _MenuItem(
+                      icon: Icons.admin_panel_settings_rounded,
+                      title: 'Admin Dashboard',
+                      subtitle: 'Kelola restoran dan master data',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const AdminDashboardScreen(),
+                          ),
+                        );
+                      },
+                    ),
                   _MenuItem(
                     icon: Icons.edit_rounded,
                     title: 'Edit Profile',
