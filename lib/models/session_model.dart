@@ -72,15 +72,21 @@ class SessionModel {
       locationAddress: location['address'] ?? '',
       locationLatitude: (location['latitude'] ?? 0.0).toDouble(),
       locationLongitude: (location['longitude'] ?? 0.0).toDouble(),
-      scheduledAt: (data['scheduledAt'] as Timestamp).toDate(),
+      scheduledAt: data['scheduledAt'] != null
+          ? (data['scheduledAt'] as Timestamp).toDate()
+          : DateTime.now().add(const Duration(hours: 1)),
       durationMinutes: data['durationMinutes'] ?? 60,
       maxParticipants: data['maxParticipants'] ?? 2,
       currentParticipants: data['currentParticipants'] ?? 1,
       participantIds: List<String>.from(data['participantIds'] ?? []),
       status: data['status'] ?? 'open',
       coverImageUrl: data['coverImageUrl'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+      createdAt: data['createdAt'] != null
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      updatedAt: data['updatedAt'] != null
+          ? (data['updatedAt'] as Timestamp).toDate()
+          : DateTime.now(),
       completedAt: data['completedAt'] != null
           ? (data['completedAt'] as Timestamp).toDate()
           : null,

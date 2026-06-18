@@ -167,7 +167,7 @@ class _RatingScreenState extends State<RatingScreen> {
     if (gagal.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Rating berhasil dikirim! ⭐ ($berhasil peserta)'),
+          content: Text('Rating berhasil dikirim ($berhasil peserta)'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -325,7 +325,7 @@ class _RatingScreenState extends State<RatingScreen> {
                                     color: AppColors.success.withValues(alpha: 0.4)),
                               ),
                               child: Text(
-                                '✓ Sudah',
+                                'Sudah',
                                 style: AppTextStyles.caption.copyWith(
                                   color: AppColors.success,
                                   fontWeight: FontWeight.w600,
@@ -421,7 +421,8 @@ class _RatingScreenState extends State<RatingScreen> {
               MediaQuery.of(context).padding.bottom + 12,
             ),
             child: CustomButton(
-              text: 'Kirim Rating ⭐',
+              text: 'Kirim Rating',
+              icon: Icons.star_outline_rounded,
               isLoading: _isSubmitting,
               onPressed: () { _submitRatings(); },
             ),

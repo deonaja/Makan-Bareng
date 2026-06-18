@@ -327,7 +327,8 @@ class SessionDetailScreen extends StatelessWidget {
                   // Action buttons
                   if (isParticipant && !isCompleted) ...[
                     CustomButton(
-                      text: 'Buka Chat Grup 💬',
+                      text: 'Buka Chat Grup',
+                      icon: Icons.chat_bubble_outline_rounded,
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -342,22 +343,50 @@ class SessionDetailScreen extends StatelessWidget {
                       CustomButton(
                         text: 'Keluar dari Sesi',
                         isOutlined: true,
-                        onPressed: () {
-                          sessionProvider.leaveSession(
+                        onPressed: () async {
+                          final ok = await sessionProvider.leaveSession(
                             sessionId: latestSession.sessionId,
                             userId: currentUserId,
                           );
-                          Navigator.pop(context);
+                          if (!context.mounted) return;
+                          if (ok) {
+                            Navigator.pop(context);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    sessionProvider.error ?? 'Gagal keluar dari sesi'),
+                                backgroundColor: AppColors.error,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                              ),
+                            );
+                          }
                         },
                       ),
                     if (isCreator) ...[
                       CustomButton(
-                        text: 'Selesaikan Sesi ✅',
+                        text: 'Selesaikan Sesi',
                         isOutlined: true,
                         backgroundColor: AppColors.success,
                         textColor: AppColors.success,
-                        onPressed: () {
-                          sessionProvider.completeSession(latestSession.sessionId);
+                        onPressed: () async {
+                          final ok = await sessionProvider
+                              .completeSession(latestSession.sessionId);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(ok
+                                  ? 'Sesi berhasil diselesaikan'
+                                  : sessionProvider.error ?? 'Gagal menyelesaikan sesi'),
+                              backgroundColor:
+                                  ok ? AppColors.success : AppColors.error,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
                         },
                       ),
                       const SizedBox(height: 12),
@@ -366,9 +395,24 @@ class SessionDetailScreen extends StatelessWidget {
                         isOutlined: true,
                         backgroundColor: AppColors.error,
                         textColor: AppColors.error,
-                        onPressed: () {
-                          sessionProvider.cancelSession(latestSession.sessionId);
-                          Navigator.pop(context);
+                        onPressed: () async {
+                          final ok = await sessionProvider
+                              .cancelSession(latestSession.sessionId);
+                          if (!context.mounted) return;
+                          if (ok) {
+                            Navigator.pop(context);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    sessionProvider.error ?? 'Gagal membatalkan sesi'),
+                                backgroundColor: AppColors.error,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                              ),
+                            );
+                          }
                         },
                       ),
                     ],
@@ -376,16 +420,20 @@ class SessionDetailScreen extends StatelessWidget {
                       !latestSession.isFull &&
                       latestSession.status == 'open') ...[
                     CustomButton(
-                      text: 'Gabung Sesi 🙌',
-                      onPressed: () {
-                        sessionProvider.joinSession(
+                      text: 'Gabung Sesi',
+                      icon: Icons.group_add_rounded,
+                      onPressed: () async {
+                        final ok = await sessionProvider.joinSession(
                             sessionId: latestSession.sessionId,
                             userId: currentUserId);
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: const Text(
-                                'Berhasil bergabung! 🎉'),
-                            backgroundColor: AppColors.success,
+                            content: Text(ok
+                                ? 'Berhasil bergabung ke sesi'
+                                : sessionProvider.error ?? 'Gagal bergabung ke sesi'),
+                            backgroundColor:
+                                ok ? AppColors.success : AppColors.error,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -396,7 +444,8 @@ class SessionDetailScreen extends StatelessWidget {
                     ),
                   ] else if (isCompleted && isParticipant) ...[
                     CustomButton(
-                      text: 'Beri Rating Peserta ⭐',
+                      text: 'Beri Rating Peserta',
+                      icon: Icons.star_outline_rounded,
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(

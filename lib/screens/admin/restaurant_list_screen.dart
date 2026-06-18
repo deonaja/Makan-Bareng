@@ -59,6 +59,7 @@ class RestaurantListScreen extends StatelessWidget {
                         icon: const Icon(Icons.delete),
                         onPressed: () async {
                           await provider.deleteRestaurant(restaurantId);
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text("Restoran dihapus")),
                           );

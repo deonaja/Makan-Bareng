@@ -147,6 +147,24 @@ class MockData {
       category: 'Padang',
       priceRange: 'Rp 15.000 - 30.000',
     ),
+    RestaurantModel(
+      id: 'resto_8',
+      name: 'Warmindo 24 Jam',
+      address: 'Jl. Sukapura No. 8, Dayeuhkolot',
+      location: const LatLng(-6.9755, 107.6315),
+      rating: 4.1,
+      category: 'Indomie & Warteg',
+      priceRange: 'Rp 8.000 - 20.000',
+    ),
+    RestaurantModel(
+      id: 'resto_9',
+      name: 'Seafood Bakar 99',
+      address: 'Jl. PGA No. 12, Bandung',
+      location: const LatLng(-6.9710, 107.6305),
+      rating: 4.5,
+      category: 'Seafood',
+      priceRange: 'Rp 25.000 - 60.000',
+    ),
   ];
 
   // ============ CHAT MESSAGES ============
