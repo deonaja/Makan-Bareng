@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../models/review_model.dart';
 import '../data/mock_data.dart';
@@ -70,5 +71,9 @@ class UserProvider extends ChangeNotifier {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Stream<QuerySnapshot> getUsersStream() {
+    return _userService.getUsersStream();
   }
 }
