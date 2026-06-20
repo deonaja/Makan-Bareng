@@ -67,14 +67,31 @@ class AvatarWidget extends StatelessWidget {
         ],
       ),
       child: Center(
-        child: Text(
-          _initials,
-          style: AppTextStyles.labelLarge.copyWith(
-            color: Colors.white,
-            fontSize: size * 0.35,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        child: photoUrl != null && photoUrl!.isNotEmpty
+            ? ClipOval(
+                child: Image.network(
+                  photoUrl!,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Text(
+                    _initials,
+                    style: AppTextStyles.labelLarge.copyWith(
+                      color: Colors.white,
+                      fontSize: size * 0.35,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              )
+            : Text(
+                _initials,
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: Colors.white,
+                  fontSize: size * 0.35,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
       ),
     );
   }

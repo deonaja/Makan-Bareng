@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
@@ -109,5 +110,9 @@ class UserProvider extends ChangeNotifier {
 
   Stream<QuerySnapshot> getUsersStream() {
     return _userService.getUsersStream();
+  }
+
+  Future<String> uploadProfilePicture(File imageFile) async {
+    return await _userService.uploadProfilePicture(imageFile);
   }
 }

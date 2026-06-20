@@ -66,6 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // Avatar & basic info
                   AvatarWidget(
                     name: user.name,
+                    photoUrl: user.photoUrl,
                     size: 88,
                     showBorder: true,
                   ),

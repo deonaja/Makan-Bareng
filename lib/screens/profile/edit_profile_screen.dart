@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -20,6 +22,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _bioController;
   late TextEditingController _prefController;
   late List<String> _selectedPreferences;
+  File? _selectedImage;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -55,6 +59,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memilih gambar: $e'), backgroundColor: AppColors.error),
+      );
+    }
+  }
+
   bool _isLoading = false;
 
   Future<void> _saveProfile() async {
@@ -62,13 +81,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final auth = context.read<AuthProvider>();
     final userProvider = context.read<UserProvider>();
     
-    final updatedUser = auth.currentUser!.copyWith(
-      name: _nameController.text.trim(),
-      bio: _bioController.text.trim(),
-      foodPreferences: _selectedPreferences,
-    );
-    
     try {
+      String? uploadedPhotoUrl = user.photoUrl;
+
+      if (_selectedImage != null) {
+        uploadedPhotoUrl = await userProvider.uploadProfilePicture(_selectedImage!);
+      }
+
+      final updatedUser = auth.currentUser!.copyWith(
+        name: _nameController.text.trim(),
+        bio: _bioController.text.trim(),
+        foodPreferences: _selectedPreferences,
+        photoUrl: uploadedPhotoUrl,
+      );
+      
       await userProvider.updateUserProfile(user: updatedUser);
       auth.updateProfile(updatedUser);
 
@@ -115,10 +141,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // Avatar
             Stack(
               children: [
-                AvatarWidget(
-                  name: user.name,
-                  size: 88,
-                  showBorder: true,
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: _selectedImage != null
+                      ? ClipOval(
+                          child: Image.file(
+                            _selectedImage!,
+                            width: 88,
+                            height: 88,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : AvatarWidget(
+                          name: user.name,
+                          photoUrl: user.photoUrl,
+                          size: 88,
+                          showBorder: true,
+                        ),
                 ),
                 Positioned(
                   bottom: 0,
