@@ -35,6 +35,16 @@ class UserModel {
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    DateTime parseDateTime(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      if (value is String) {
+        return DateTime.tryParse(value) ?? DateTime.now();
+      }
+      return DateTime.now();
+    }
+
     return UserModel(
       uid: doc.id,
       name: data['name'] ?? '',
@@ -47,9 +57,9 @@ class UserModel {
       totalReviews: data['totalReviews'] ?? 0,
       sessionsCreated: data['sessionsCreated'] ?? 0,
       sessionsJoined: data['sessionsJoined'] ?? 0,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: parseDateTime(data['createdAt']),
+      updatedAt: parseDateTime(data['updatedAt']),
+      lastLoginAt: parseDateTime(data['lastLoginAt']),
     );
   }
 
