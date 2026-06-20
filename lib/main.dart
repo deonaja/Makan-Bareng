@@ -10,6 +10,7 @@ import 'providers/chat_provider.dart';
 import 'providers/user_provider.dart';
 import 'services/notification_service.dart';
 import 'screens/splash/splash_screen.dart';
+import 'screens/admin/admin_dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +47,18 @@ class MakanBarengApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
         home: const SplashScreen(),
+        routes: {
+          '/admin': (context) {
+            final auth = context.watch<app_auth.AuthProvider>();
+            final user = auth.currentUser;
+            if (user != null && user.isAdmin) {
+              return const AdminDashboardScreen();
+            }
+            // Jika bukan admin, kembalikan ke splash screen (yang otomatis
+            // menangani auto-login & routing normal)
+            return const SplashScreen();
+          },
+        },
       ),
     );
   }

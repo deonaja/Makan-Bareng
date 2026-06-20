@@ -94,6 +94,16 @@ class SessionService {
     });
   }
 
+  Stream<List<SessionModel>> streamAllSessions() {
+    return _sessions.snapshots().map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => SessionModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+      return list;
+    });
+  }
+
   Stream<List<SessionModel>> streamUserSessions(String userId) {
     return _sessions
         .where('participantIds', arrayContains: userId)

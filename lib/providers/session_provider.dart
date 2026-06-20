@@ -59,6 +59,10 @@ class SessionProvider extends ChangeNotifier {
     return list;
   }
 
+  Stream<List<SessionModel>> streamAllSessions() {
+    return _service.streamAllSessions();
+  }
+
   void listenActiveSessions() {
     _activeSessionsSub?.cancel();
     _activeSessionsSub = _service.streamActiveSessions().listen(

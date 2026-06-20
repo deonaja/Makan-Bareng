@@ -92,8 +92,8 @@ class _RatingScreenState extends State<RatingScreen> {
               _participantProfiles[userId] = profile;
             });
           }
-        } catch (_) {
-          // Fallback to showing default/mock name if we fail to fetch from Firestore
+        } catch (e) {
+          debugPrint('Error loading participant profile for $userId: $e');
         }
       }
     }
@@ -157,7 +157,8 @@ class _RatingScreenState extends State<RatingScreen> {
         );
         berhasil++;
       } catch (e) {
-        gagal.add(revieweeUser?.name ?? revieweeId);
+        final errorMsg = e.toString().replaceFirst('Exception: ', '').replaceFirst('Gagal mengirim review: ', '');
+        gagal.add('${revieweeUser?.name ?? revieweeId} ($errorMsg)');
       }
     }
 
