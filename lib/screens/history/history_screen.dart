@@ -41,8 +41,8 @@ class HistoryScreen extends StatelessWidget {
             unselectedLabelStyle:
                 AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.w500),
             tabs: [
-              Tab(text: 'Aku Buat (${created.length})'),
-              Tab(text: 'Aku Ikut (${joined.length})'),
+              Tab(text: 'Dibuat (${created.length})'),
+              Tab(text: 'Diikuti (${joined.length})'),
             ],
           ),
         ),
