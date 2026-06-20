@@ -34,7 +34,7 @@ class UserModel {
   });
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>? ?? {};
 
     DateTime parseDateTime(dynamic value) {
       if (value == null) return DateTime.now();
@@ -45,18 +45,34 @@ class UserModel {
       return DateTime.now();
     }
 
+    double parseDouble(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0.0;
+      return 0.0;
+    }
+
+    int parseInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
     return UserModel(
       uid: doc.id,
-      name: data['name'] ?? '',
-      email: data['email'] ?? '',
-      photoUrl: data['photoUrl'] ?? '',
-      bio: data['bio'] ?? '',
-      foodPreferences: List<String>.from(data['foodPreferences'] ?? []),
-      isAdmin: data['isAdmin'] ?? false,
-      averageRating: (data['averageRating'] ?? 0.0).toDouble(),
-      totalReviews: data['totalReviews'] ?? 0,
-      sessionsCreated: data['sessionsCreated'] ?? 0,
-      sessionsJoined: data['sessionsJoined'] ?? 0,
+      name: data['name']?.toString() ?? '',
+      email: data['email']?.toString() ?? '',
+      photoUrl: data['photoUrl']?.toString() ?? '',
+      bio: data['bio']?.toString() ?? '',
+      foodPreferences: data['foodPreferences'] is List
+          ? List<String>.from((data['foodPreferences'] as List).map((e) => e.toString()))
+          : [],
+      isAdmin: data['isAdmin'] == true,
+      averageRating: parseDouble(data['averageRating']),
+      totalReviews: parseInt(data['totalReviews']),
+      sessionsCreated: parseInt(data['sessionsCreated']),
+      sessionsJoined: parseInt(data['sessionsJoined']),
       createdAt: parseDateTime(data['createdAt']),
       updatedAt: parseDateTime(data['updatedAt']),
       lastLoginAt: parseDateTime(data['lastLoginAt']),
