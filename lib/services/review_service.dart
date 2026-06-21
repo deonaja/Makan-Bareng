@@ -79,9 +79,12 @@ class ReviewService {
 
         // 2. Update counter di users/{revieweeId}
         // Ref: SPEC Section 5.1 — averageRating & totalReviews adalah denormalized counter
+        // updatedAt WAJIB di-set ke serverTimestamp — firestore.rules
+        // isValidRatingCounterUpdate() mengharuskan updatedAt == request.time
         transaction.update(revieweeRef, {
           'averageRating': double.parse(newAvg.toStringAsFixed(1)),
           'totalReviews': newTotal,
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       });
     } catch (e) {
