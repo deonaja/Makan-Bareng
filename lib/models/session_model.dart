@@ -58,7 +58,8 @@ class SessionModel {
   });
 
   factory SessionModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    // doc.data() bisa null kalau dokumen kosong/baru terhapus — fallback ke map kosong.
+    final data = (doc.data() as Map<String, dynamic>?) ?? const <String, dynamic>{};
     final location = data['location'] as Map<String, dynamic>? ?? {};
 
     return SessionModel(
