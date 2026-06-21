@@ -40,24 +40,46 @@ class SessionProvider extends ChangeNotifier {
           .toList();
     }
 
-    if (_sortBy == 'jarak' && _userLat != null && _userLng != null) {
-      const calc = Distance();
-      list.sort((a, b) {
-        final da = calc(
-          LatLng(_userLat!, _userLng!),
-          LatLng(a.locationLatitude, a.locationLongitude),
-        );
-        final db = calc(
-          LatLng(_userLat!, _userLng!),
-          LatLng(b.locationLatitude, b.locationLongitude),
-        );
-        return da.compareTo(db);
-      });
+    final canSortByDistance = _sortBy == 'jarak' &&
+        _userLat != null &&
+        _userLng != null &&
+        list.any(_hasValidCoords);
+
+    if (canSortByDistance) {
+      try {
+        const calc = Distance();
+        final origin = LatLng(_userLat!, _userLng!);
+        list.sort((a, b) {
+          // Sesi dengan koordinat invalid (0,0 / NaN) didorong ke akhir.
+          final da = _safeDistance(calc, origin, a);
+          final db = _safeDistance(calc, origin, b);
+          return da.compareTo(db);
+        });
+      } catch (_) {
+        // Sort jarak gagal (mis. exception dari Distance) — fallback ke waktu.
+        list.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      }
     } else {
       list.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     }
 
     return list;
+  }
+
+  bool _hasValidCoords(SessionModel s) {
+    final lat = s.locationLatitude;
+    final lng = s.locationLongitude;
+    return !lat.isNaN && !lng.isNaN && !(lat == 0.0 && lng == 0.0);
+  }
+
+  double _safeDistance(Distance calc, LatLng origin, SessionModel s) {
+    if (!_hasValidCoords(s)) return double.infinity;
+    try {
+      final d = calc(origin, LatLng(s.locationLatitude, s.locationLongitude));
+      return d.isNaN ? double.infinity : d;
+    } catch (_) {
+      return double.infinity;
+    }
   }
 
   Stream<List<SessionModel>> streamAllSessions() {
