@@ -24,11 +24,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final user = context.read<AuthProvider>().currentUser!;
-    _nameController = TextEditingController(text: user.name);
-    _bioController = TextEditingController(text: user.bio);
+    final user = context.read<AuthProvider>().currentUser;
+    _nameController = TextEditingController(text: user?.name ?? '');
+    _bioController = TextEditingController(text: user?.bio ?? '');
     _prefController = TextEditingController();
-    _selectedPreferences = List.from(user.foodPreferences);
+    _selectedPreferences = List.from(user?.foodPreferences ?? const <String>[]);
+    if (user == null) {
+      // Auth ke-clear sebelum screen sempat buka — pop balik di frame berikutnya.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pop();
+      });
+    }
   }
 
   @override
@@ -58,11 +64,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = false;
 
   Future<void> _saveProfile() async {
-    setState(() => _isLoading = true);
     final auth = context.read<AuthProvider>();
     final userProvider = context.read<UserProvider>();
-    
-    final updatedUser = auth.currentUser!.copyWith(
+    final current = auth.currentUser;
+    if (current == null) {
+      // Auth ke-clear sebelum simpan — abort tanpa crash.
+      Navigator.of(context).pop();
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final updatedUser = current.copyWith(
       name: _nameController.text.trim(),
       bio: _bioController.text.trim(),
       foodPreferences: _selectedPreferences,
@@ -100,7 +112,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthProvider>().currentUser!;
+    final user = context.watch<AuthProvider>().currentUser;
+    if (user == null) {
+      // Auth ke-clear di tengah jalan — fallback ke loading, screen di-pop oleh splash/router.
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
