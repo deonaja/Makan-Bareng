@@ -26,7 +26,7 @@ class ChatMessageModel {
   /// Konversi dari Firestore document ke ChatMessageModel
   /// Defensive dengan ?? untuk default value (Section 7.2 rule 2)
   factory ChatMessageModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = (doc.data() as Map<String, dynamic>?) ?? const <String, dynamic>{};
 
     return ChatMessageModel(
       messageId: doc.id,

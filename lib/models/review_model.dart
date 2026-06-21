@@ -33,7 +33,7 @@ class ReviewModel {
   });
 
   factory ReviewModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = (doc.data() as Map<String, dynamic>?) ?? const <String, dynamic>{};
 
     return ReviewModel(
       reviewId: doc.id,
