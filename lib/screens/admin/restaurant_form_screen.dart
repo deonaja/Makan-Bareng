@@ -172,6 +172,7 @@ class _RestaurantFormScreenState extends State<RestaurantFormScreen> {
                   controller: _nameController,
                   label: 'Nama Restoran',
                   icon: Icons.restaurant_menu,
+                  maxLength: 150,
                   validator: (v) => v == null || v.isEmpty ? 'Nama wajib diisi' : null,
                 ),
                 const SizedBox(height: 16),
@@ -180,12 +181,14 @@ class _RestaurantFormScreenState extends State<RestaurantFormScreen> {
                   label: 'Deskripsi',
                   icon: Icons.description,
                   maxLines: 3,
+                  maxLength: 1000,
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _addressController,
                   label: 'Alamat',
                   icon: Icons.location_on,
+                  maxLength: 300,
                   validator: (v) => v == null || v.isEmpty ? 'Alamat wajib diisi' : null,
                 ),
                 const SizedBox(height: 16),
@@ -299,12 +302,14 @@ class _RestaurantFormScreenState extends State<RestaurantFormScreen> {
     required String label,
     required IconData icon,
     int maxLines = 1,
+    int? maxLength,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
+      maxLength: maxLength,
       keyboardType: keyboardType,
       style: const TextStyle(color: AppColors.textPrimary),
       decoration: InputDecoration(

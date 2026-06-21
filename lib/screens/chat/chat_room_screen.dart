@@ -447,6 +447,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                     child: TextField(
                       controller: _messageController,
                       style: AppTextStyles.bodyMedium,
+                      maxLength: 1000,
                       decoration: InputDecoration(
                         hintText: 'Ketik pesan...',
                         hintStyle: AppTextStyles.bodyMedium.copyWith(
@@ -456,6 +457,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         filled: false,
+                        counterText: '',
                         contentPadding:
                             const EdgeInsets.symmetric(vertical: 10),
                       ),
