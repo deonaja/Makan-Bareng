@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "123659372988-i5ckgbapu08iel2ocsds0guim9h53ldi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.makan_bareng",
+            "certificate_hash": "e7c3392024751ba68d688ba6eb146c3c76b4f83e"
+          }
+        },
+        {
           "client_id": "123659372988-7lqp9e3ls0tlqmmr31kk43vpeggv5369.apps.googleusercontent.com",
           "client_type": 3
         }
