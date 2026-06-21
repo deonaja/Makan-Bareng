@@ -14,6 +14,7 @@ class UserProvider extends ChangeNotifier {
   // Mencegah duplikat fetch untuk uid yang sedang/sudah di-fetch
   final Set<String> _pendingFetches = {};
   final Set<String> _failedFetches = {};
+  bool _disposed = false;
 
   List<UserModel> get users => _users;
   List<ReviewModel> get reviews => _reviews;
@@ -109,5 +110,19 @@ class UserProvider extends ChangeNotifier {
 
   Stream<QuerySnapshot> getUsersStream() {
     return _userService.getUsersStream();
+  }
+
+  @override
+  void notifyListeners() {
+    // Guard agar async `.then()` di _fetchIfMissing yang resolve setelah
+    // provider di-dispose tidak crash dengan "used after disposed".
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

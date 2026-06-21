@@ -19,6 +19,7 @@ class SessionProvider extends ChangeNotifier {
 
   StreamSubscription<List<SessionModel>>? _activeSessionsSub;
   StreamSubscription<List<SessionModel>>? _userSessionsSub;
+  bool _disposed = false;
 
   List<SessionModel> get activeSessions => _activeSessions;
   List<SessionModel> get userSessions => _userSessions;
@@ -250,7 +251,15 @@ class SessionProvider extends ChangeNotifier {
   }
 
   @override
+  void notifyListeners() {
+    // Guard agar stream callback yang resolve setelah dispose tidak crash.
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
+  @override
   void dispose() {
+    _disposed = true;
     _activeSessionsSub?.cancel();
     _userSessionsSub?.cancel();
     super.dispose();
