@@ -52,8 +52,12 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read: if isAuthenticated();
-        allow create: if isAuthenticated()
-                      && request.resource.data.senderId == request.auth.uid;
+        // senderId == auth.uid untuk pesan user biasa; 'system' khusus pesan otomatis
+        // (mis. "Sesi X telah dibuat") yang di-trigger client tapi diatasnamakan sistem.
+        allow create: if isAuthenticated() && (
+                        request.resource.data.senderId == request.auth.uid ||
+                        request.resource.data.senderId == 'system'
+                      );
         allow update: if isAuthenticated();
         allow delete: if isAdmin();
       }
