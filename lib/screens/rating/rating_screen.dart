@@ -126,13 +126,16 @@ class _RatingScreenState extends State<RatingScreen> {
         .toList();
 
     if (pendingReviews.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Capture messenger sebelum pop — kalau show snackbar setelah pop,
+      // context udah lepas dari tree dan snackbar gak akan tampil.
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Semua peserta sudah kamu beri rating sebelumnya'),
           behavior: SnackBarBehavior.floating,
         ),
       );
-      Navigator.pop(context);
       return;
     }
 
@@ -166,7 +169,9 @@ class _RatingScreenState extends State<RatingScreen> {
     setState(() => _isSubmitting = false);
 
     if (gagal.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(
         SnackBar(
           content: Text('Rating berhasil dikirim ($berhasil peserta)'),
           backgroundColor: AppColors.success,
@@ -174,7 +179,6 @@ class _RatingScreenState extends State<RatingScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
-      Navigator.pop(context);
     } else {
       // Sebagian berhasil, sebagian gagal — tunjukkan detail
       ScaffoldMessenger.of(context).showSnackBar(
