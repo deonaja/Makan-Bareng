@@ -43,7 +43,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Mark semua pesan sebagai sudah dibaca via provider.
+      // User mungkin udah balik sebelum frame berikutnya — context jadi stale.
+      if (!mounted) return;
       final chatProvider = context.read<ChatProvider>();
       final auth = context.read<AuthProvider>();
       final currentUserId = auth.currentUser?.uid ?? '';
