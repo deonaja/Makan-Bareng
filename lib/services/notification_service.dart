@@ -90,7 +90,14 @@ class NotificationService {
           session.currentParticipants;
       _sessionSubscriptions[session.sessionId] = _sessionService
           .streamSessionById(session.sessionId)
-          .listen(_handleSessionUpdate);
+          .listen(
+        _handleSessionUpdate,
+        // Stream dokumen sesi bisa melempar error, mis. permission-denied saat
+        // user logout (Firestore rules menolak akses). Tanpa onError, error ini
+        // menjadi unhandled exception dan meng-crash aplikasi. Subscription akan
+        // dibersihkan via clearSubscriptions()/dispose() saat logout.
+        onError: (_) {},
+      );
     }
   }
 

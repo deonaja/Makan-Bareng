@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -126,6 +127,9 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     _setLoading(true);
     try {
+      // Hentikan listener notifikasi (stream dokumen sesi) SEBELUM sign-out,
+      // agar Firestore tidak melempar permission-denied saat sesi auth dicabut.
+      await NotificationService().dispose();
       await _authService.logout();
       _currentUser = null;
     } catch (e) {
