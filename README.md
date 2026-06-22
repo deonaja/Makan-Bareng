@@ -1,88 +1,108 @@
-# MakanBareng — Dokumentasi Sistem & Alur Kerja
+# MakanBareng
 
-Aplikasi mobile berbasis Android yang dikembangkan menggunakan Flutter untuk memudahkan mahasiswa mencari teman makan secara spontan di sekitar kampus Telkom University.
+**MakanBareng** adalah aplikasi mobile Android yang membantu mahasiswa mencari teman makan secara spontan di sekitar kampus. Pengguna dapat membuat sesi makan dengan lokasi dan waktu tertentu, melihat sesi yang dibuat orang lain di peta, bergabung, mengobrol dalam grup sesi secara realtime, lalu saling memberi rating setelah sesi selesai.
+
+Aplikasi ini dikembangkan sebagai tugas besar mata kuliah **Aplikasi Perangkat Bergerak (CBK3GAB3)** di Telkom University.
 
 ---
 
-## 1. Alur Sistem (System Flow)
+## Tentang Aplikasi
 
-Sistem MakanBareng bekerja secara terintegrasi dengan backend Firebase (Auth & Firestore) melalui alur data berikut:
+Sering kali kita ingin makan bersama orang lain tapi tidak tahu siapa yang sedang lapar di waktu dan tempat yang sama. MakanBareng menjawab persoalan itu: siapa pun bisa membuka "sesi makan" sebagai ajakan terbuka, dan mahasiswa lain di sekitarnya dapat melihat ajakan tersebut langsung di peta lalu ikut bergabung.
 
-```mermaid
-graph TD
-    A[Pengguna Login] --> B[Membuat / Bergabung Sesi Makan]
-    B --> C[Obrolan Grup Realtime]
-    C --> D[Sesi Selesai]
-    D --> E[Memberikan Rating & Ulasan]
-    E --> F[Pembaruan Reputasi Pengguna]
+Fokus aplikasi ada pada tiga hal:
+
+- **Spontan** — sesi dibuat untuk waktu dekat, bukan acara terjadwal jauh hari.
+- **Berbasis lokasi** — semua sesi tampil di peta sehingga pengguna tahu mana yang dekat.
+- **Sosial** — ada chat per sesi dan sistem reputasi (rating) antar pengguna.
+
+---
+
+## Fitur Utama
+
+### Aplikasi Pengguna (Diner)
+
+- **Autentikasi** — registrasi dan login menggunakan Email/Password atau Google Sign-In.
+- **Beranda + Peta** — daftar sesi makan aktif dan peta interaktif (OpenStreetMap) dengan marker untuk setiap sesi beserta kapasitasnya.
+- **Buat Sesi Makan** — tentukan judul, deskripsi, lokasi/tempat makan, waktu mulai, dan jumlah kursi maksimum.
+- **Cari & Filter** — cari sesi berdasarkan judul, serta filter berdasarkan jarak dan waktu.
+- **Detail Sesi & Gabung** — lihat detail sesi dan bergabung; sesi otomatis terkunci ketika kapasitas penuh.
+- **Chat Realtime** — obrolan grup per sesi yang tersinkron secara realtime.
+- **Riwayat Sesi** — daftar sesi yang pernah dibuat maupun diikuti.
+- **Rating & Ulasan** — beri penilaian antar peserta setelah sesi selesai untuk membangun reputasi.
+- **Profil** — kelola nama, foto, bio, dan preferensi makanan.
+- **Notifikasi** — pemberitahuan lokal saat ada aktivitas pada sesi (mis. peserta baru bergabung).
+
+### Dashboard Admin
+
+- Login admin terpisah (akun dengan flag `isAdmin`).
+- Kelola pengguna (lihat, suspend, hapus).
+- Kelola sesi (lihat dan tutup paksa sesi).
+- Kelola data tempat makan (CRUD).
+
+---
+
+## Tampilan Aplikasi
+
+| Beranda & Peta | Daftar Sesi Aktif | Buat Sesi Makan | Profil |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/screenshots/home.png" width="200" alt="Beranda dengan peta dan sesi aktif"> | <img src="docs/screenshots/session_list.png" width="200" alt="Daftar sesi makan aktif"> | <img src="docs/screenshots/create_session.png" width="200" alt="Form buat sesi makan"> | <img src="docs/screenshots/profile.png" width="200" alt="Halaman profil pengguna"> |
+
+---
+
+## Teknologi
+
+| Lapisan | Teknologi |
+|---------|-----------|
+| Framework | Flutter (Dart) |
+| State management | Provider |
+| Backend | Firebase Authentication, Cloud Firestore |
+| Peta | `flutter_map` + OpenStreetMap (tema CartoDB Dark), `latlong2` |
+| Lokasi | `geolocator` |
+| Notifikasi | `flutter_local_notifications` (lokal, dipicu listener Firestore) |
+| UI/UX | `google_fonts`, `flutter_rating_bar`, `shimmer` |
+| Foto profil | Foto akun Google atau avatar otomatis dari `ui-avatars.com` |
+
+Peta menggunakan OpenStreetMap melalui package `flutter_map` sebagai alternatif open-source dari Google Maps (gratis, tanpa API key). Foto disimpan sebagai URL eksternal sehingga tidak memerlukan Firebase Storage, dan aplikasi dapat berjalan penuh pada Firebase Spark plan (gratis).
+
+---
+
+## Menjalankan Proyek
+
+Prasyarat: Flutter SDK (Dart `^3.11.4`) dan sebuah device/emulator Android.
+
+```bash
+# 1. Pasang dependensi
+flutter pub get
+
+# 2. Jalankan di device yang terhubung
+flutter run
 ```
 
-### 1.1 Alur Autentikasi (Auth Flow)
-- Pengguna mendaftar/masuk menggunakan **Email & Password** atau **Google Sign-In**.
-- Jika pengguna baru berhasil mendaftar, dokumen baru otomatis terbuat pada Firestore di path `users/{userId}` dengan nilai default awal.
+Konfigurasi Firebase (`google-services.json` / `firebase_options.dart`) sudah disertakan untuk proyek Firebase pengembangan.
 
-### 1.2 Alur Sesi Makan (Session Flow)
-- Pembuat sesi (Host) memilih lokasi makan melalui OpenStreetMap, mengisi judul, waktu, deskripsi, dan kapasitas kursi.
-- Peserta lain dapat melihat daftar sesi aktif di beranda atau peta, kemudian bergabung. Status sesi akan otomatis terkunci (`full`) ketika batas kapasitas tercapai.
+### Pengujian
 
-### 1.3 Alur Obrolan Realtime (Chat Flow)
-- Setelah bergabung ke sesi, peserta dapat saling mengobrol menggunakan chat room yang sinkron secara realtime menggunakan Firestore Listener (`snapshots()`).
+Suite unit test tersedia untuk model, logika bisnis, dan widget:
 
----
-
-## 2. Modul Rating & Review (Tugas Revandi)
-
-Modul ini bertanggung jawab mengelola penilaian reputasi antar-pengguna setelah sesi makan bersama dinyatakan selesai.
-
-### 2.1 Alur Transaksi Firestore (Firestore Transaction)
-Untuk menjamin akurasi reputasi rating pengguna secara realtime tanpa terjadi balapan data (*race condition*), proses penyimpanan ulasan dilakukan menggunakan **Firestore Transaction** sebagai berikut:
-
-```mermaid
-sequenceDiagram
-    participant C as Client (RatingScreen)
-    participant FS as Cloud Firestore
-    
-    C->>FS: 1. Baca dokumen reviewee (users/{revieweeId})
-    FS-->>C: Mengembalikan nilai averageRating & totalReviews lama
-    Note over C: 2. Hitung incremental averageRating & totalReviews baru
-    C->>FS: 3. Set dokumen baru di /reviews/{reviewId}
-    C->>FS: 4. Update data rating di /users/{revieweeId}
-    Note over FS: Transaksi sukses secara atomic!
-```
-
-Rumus perhitungan rating bertahap (*incremental average*):
-$$\text{newAvg} = \frac{(\text{currentAvg} \times \text{currentTotal}) + \text{newRating}}{\text{currentTotal} + 1}$$
-
-### 2.2 Struktur Data Ulasan (Firestore Schema)
-
-Berkas ulasan disimpan pada root koleksi `/reviews` dengan struktur:
-- `reviewId` (String, document ID)
-- `sessionId` (String)
-- `sessionTitle` (String, denormalized)
-- `reviewerId` (String)
-- `reviewerName` (String, denormalized)
-- `reviewerPhotoUrl` (String, denormalized)
-- `revieweeId` (String)
-- `revieweeName` (String, denormalized)
-- `rating` (Double, 1.0 - 5.0)
-- `comment` (String)
-- `createdAt` (Timestamp, server-generated)
-
----
-
-## 3. Instruksi Pengujian (Testing Guide)
-
-Proyek ini telah dilengkapi dengan suite pengujian unit yang komprehensif untuk memvalidasi model, logika bisnis, dan widget.
-
-### 3.1 Menjalankan Pengujian
-Jalankan perintah berikut pada direktori root proyek untuk mengeksekusi semua tes:
-```powershell
+```bash
 flutter test
 ```
 
-### 3.2 Struktur Berkas Pengujian
-- `test/models/review_model_test.dart`: Validasi parsing JSON/Firestore, immutability, dan pembentukan objek `ReviewModel`.
-- `test/services/review_service_logic_test.dart`: Validasi kalkulasi reputasi rating, validasi batas atas/bawah rating (1.0 - 5.0), dan pencegahan rating ganda (*double rating prevention*).
-- `test/services/auth_service_logic_test.dart`: Validasi penanganan kode kesalahan Firebase Auth dan pembentukan URL avatar default.
-- `test/services/session_service_logic_test.dart`: Validasi penentuan perubahan status otomatis sesi (`open`, `full`) dan kapasitas limit kursi.
-- `test/widget_test.dart`: Pengujian widget mandiri untuk komponen reusable `CustomButton` dan `AvatarWidget` tanpa dependensi Firebase.
+---
+
+## Tim Pengembang
+
+| Nama | NIM | Tanggung Jawab |
+|------|-----|----------------|
+| Made Naradeon HP (Deon) | 103032300101 | Backend Lead — beranda, peta, search & filter, koordinasi data model & dokumentasi |
+| Revandi Akbar | 103032300120 | Rating, review, testing |
+| Naemu Enggar M | 103032330009 | Sesi, chat, riwayat, notifikasi |
+| Muhammad Ihsan P | 103032330023 | Profil, admin dashboard, UI/UX |
+| Saladin Setyo H | 103032330194 | Firebase setup, Auth, struktur Firestore |
+
+---
+
+> Dokumen teknis lengkap (struktur data, arsitektur, konvensi) ada di [`MAKAN_BARENG_SPEC.md`](MAKAN_BARENG_SPEC.md). Panduan kerja tim ada di [`TEAM_GUIDE.md`](TEAM_GUIDE.md).
+</content>
+</invoke>
