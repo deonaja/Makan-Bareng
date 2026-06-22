@@ -11,6 +11,7 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   StreamSubscription<User?>? _authSubscription;
+  bool _disposed = false;
 
   /// True setelah Firebase Auth & Firestore selesai menentukan status login
   /// pertama kali (termasuk restore sesi dari storage lokal).
@@ -162,7 +163,17 @@ class AuthProvider extends ChangeNotifier {
   }
 
   @override
+  void notifyListeners() {
+    // Guard agar callback async (auth state listener, login future, dll.) yang
+    // resolve setelah provider di-dispose tidak crash. Tanpa ini, ChangeNotifier
+    // melempar "A AuthProvider was used after being disposed".
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
+  @override
   void dispose() {
+    _disposed = true;
     _authSubscription?.cancel();
     super.dispose();
   }

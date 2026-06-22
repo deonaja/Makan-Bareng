@@ -163,6 +163,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               labelText: 'Nama',
               hintText: 'Masukkan nama lengkap',
               prefixIcon: Icons.person_outline,
+              maxLength: 100,
             ),
             const SizedBox(height: 20),
 
@@ -173,6 +174,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               hintText: 'Ceritakan tentang dirimu...',
               prefixIcon: Icons.info_outline,
               maxLines: 3,
+              maxLength: 300,
             ),
             const SizedBox(height: 20),
 

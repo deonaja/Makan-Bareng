@@ -27,6 +27,7 @@ class _MainNavigationState extends State<MainNavigation> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final uid = context.read<AuthProvider>().currentUser?.uid ?? '';
       final sessionProvider = context.read<SessionProvider>();
       _sessionProvider = sessionProvider;

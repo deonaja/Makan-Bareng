@@ -152,6 +152,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                 labelText: 'Judul Sesi',
                 hintText: 'Contoh: Makan Siang Bareng',
                 prefixIcon: Icons.title_rounded,
+                maxLength: 100,
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Judul tidak boleh kosong' : null,
               ),
@@ -164,6 +165,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                 hintText: 'Ceritakan tentang sesi makan ini...',
                 prefixIcon: Icons.description_outlined,
                 maxLines: 3,
+                maxLength: 500,
               ),
               const SizedBox(height: 24),
 

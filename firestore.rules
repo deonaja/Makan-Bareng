@@ -51,6 +51,19 @@ service cloud.firestore {
                     );
 
       match /messages/{messageId} {
+        // Update hanya boleh: user lain menambahkan dirinya ke `readBy`
+        // (markAsRead / markAllAsRead). Tidak boleh edit field lain.
+        function isValidReadByUpdate() {
+          return isAuthenticated()
+                 && request.resource.data.diff(resource.data).affectedKeys()
+                      .hasOnly(['readBy'])
+                 && request.resource.data.readBy.hasAll(resource.data.readBy)
+                 && request.resource.data.readBy.size() ==
+                      resource.data.readBy.size() + 1
+                 && request.auth.uid in request.resource.data.readBy
+                 && !(request.auth.uid in resource.data.readBy);
+        }
+
         allow read: if isAuthenticated();
         // senderId == auth.uid untuk pesan user biasa; 'system' khusus pesan otomatis
         // (mis. "Sesi X telah dibuat") yang di-trigger client tapi diatasnamakan sistem.
@@ -58,7 +71,7 @@ service cloud.firestore {
                         request.resource.data.senderId == request.auth.uid ||
                         request.resource.data.senderId == 'system'
                       );
-        allow update: if isAuthenticated();
+        allow update: if isValidReadByUpdate() || isAdmin();
         allow delete: if isAdmin();
       }
     }

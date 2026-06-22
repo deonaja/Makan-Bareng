@@ -379,6 +379,7 @@ class _RatingScreenState extends State<RatingScreen> {
                           style: AppTextStyles.bodySmall
                               .copyWith(color: AppColors.textPrimary),
                           maxLines: 2,
+                          maxLength: 500,
                           decoration: InputDecoration(
                             hintText: 'Komentar singkat (opsional)',
                             hintStyle: AppTextStyles.bodySmall
