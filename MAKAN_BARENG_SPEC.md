@@ -1,6 +1,6 @@
 # MakanBareng — Project Specification
 
-> **Versi**: 1.4 — 18 Mei 2026
+> **Versi**: 1.5 — 22 Juni 2026
 > **Status**: Final draft, siap dipakai tim
 > **Maintainer**: Deon (Backend Lead)
 
@@ -335,6 +335,7 @@ sessions/{sessionId}
 ├── maxParticipants: number        // 2-10, ditentukan host
 ├── currentParticipants: number    // counter, mulai dari 1 (host)
 ├── participantIds: array<string>  // [hostId, joinedUserId1, ...] max 10 item
+├── joinDeadlineMinutes: number    // batas join, default 30 (menit sebelum scheduledAt). Lewat batas → tidak bisa join.
 │
 ├── // === STATUS ===
 ├── status: string                 // "open" | "full" | "ongoing" | "completed" | "canceled"
@@ -357,6 +358,7 @@ ongoing → completed   (host tandai selesai, atau auto setelah durationMinutes)
 
 **Catatan implementasi**:
 - `participantIds` selalu mencakup `hostId` sebagai elemen pertama. Host = otomatis peserta.
+- **Deadline join**: `joinSession` di service menolak join jika `DateTime.now()` melewati `(scheduledAt - joinDeadlineMinutes)` dengan error `Pendaftaran sesi sudah ditutup`.
 - Untuk join sesi: pakai `FieldValue.arrayUnion([userId])` dan `FieldValue.increment(1)` — atomic, anti race condition.
 - Untuk leave sesi: pakai `FieldValue.arrayRemove([userId])` dan `FieldValue.increment(-1)`.
 - **Lokasi selalu custom** — user pilih lokasi dengan tap di peta (OpenStreetMap), isi nama tempat & alamat manual. Tidak ada link ke `restaurants` collection. Collection `restaurants` murni untuk data admin dashboard (lihat 5.6).
@@ -1952,6 +1954,7 @@ Kalau ada perubahan signifikan, update di bagian atas dokumen:
 ```
 ## Changelog
 - v1.0 (18 Mei 2026): Initial spec
+- v1.5 (22 Juni 2026): Tambah field `joinDeadlineMinutes` (default 30) di collection sessions — batas waktu join sebelum scheduledAt.
 ```
 
 ### 14.5 Kalau ada masalah / pertanyaan
@@ -2512,3 +2515,4 @@ Target: dalam 2 minggu, aplikasi end-to-end dengan backend asli (bukan mock), si
   - Fix layout Penutup yang hilang heading-nya
   - Fix konflik wilayah `session_service.dart`: SELURUH method jadi tanggung jawab Made, Naemu hanya consumer (panggil dari widget/screen, tidak edit service-nya)
 - v1.4 (18 Mei 2026): Hapus Firebase Storage (butuh Blaze plan). Foto profil pakai auto-generated avatar URL + Google photo URL. Hapus `storage_service.dart`. Update Section 2, 4, 5, 8, 9, 11, 13, 14, 15. Update project info dengan data real (project ID: `makan-bareng`).
+- v1.5 (22 Juni 2026): Tambah field `joinDeadlineMinutes` (number, default 30) di collection sessions — batas waktu join = `scheduledAt - joinDeadlineMinutes`. `joinSession` menolak join setelah deadline dengan error `Pendaftaran sesi sudah ditutup`. Update Section 5.4.

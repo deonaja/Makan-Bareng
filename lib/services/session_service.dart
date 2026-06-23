@@ -24,6 +24,7 @@ class SessionService {
     required DateTime scheduledAt,
     required int maxParticipants,
     int durationMinutes = 60,
+    int joinDeadlineMinutes = 30,
     String coverImageUrl = '',
   }) async {
     try {
@@ -42,6 +43,7 @@ class SessionService {
         'scheduledAt': Timestamp.fromDate(scheduledAt),
         'durationMinutes': durationMinutes,
         'maxParticipants': maxParticipants,
+        'joinDeadlineMinutes': joinDeadlineMinutes,
         'currentParticipants': 1,
         'participantIds': [hostId],
         'status': 'open',
@@ -132,6 +134,17 @@ class SessionService {
         final List<String> participants = List<String>.from(data['participantIds']);
         final int current = data['currentParticipants'];
         final int max = data['maxParticipants'];
+
+        // Tolak join jika sudah lewat batas waktu (scheduledAt - joinDeadlineMinutes).
+        final scheduledTs = data['scheduledAt'] as Timestamp?;
+        final deadlineMin = (data['joinDeadlineMinutes'] ?? 30).toInt();
+        if (scheduledTs != null) {
+          final closeAt =
+              scheduledTs.toDate().subtract(Duration(minutes: deadlineMin));
+          if (DateTime.now().isAfter(closeAt)) {
+            throw Exception('Pendaftaran sesi sudah ditutup');
+          }
+        }
 
         if (participants.contains(userId)) {
           throw Exception('Kamu sudah bergabung di sesi ini');

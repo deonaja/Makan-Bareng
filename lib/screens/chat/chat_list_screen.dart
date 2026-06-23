@@ -106,12 +106,12 @@ class _ChatListScreenState extends State<ChatListScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Sembunyikan Chat',
+                  'Hapus Chat',
                   style: AppTextStyles.labelLarge.copyWith(fontSize: 16),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Chat ini akan disembunyikan dari daftarmu',
+                  'Chat akan dihapus dari daftarmu',
                   style: AppTextStyles.bodySmall,
                 ),
                 const SizedBox(height: 20),
@@ -130,7 +130,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                       Navigator.of(context).pop();
                       _hideChatSession(sessionId);
                     },
-                    child: Text('Sembunyikan', style: AppTextStyles.buttonSmall),
+                    child: Text('Hapus', style: AppTextStyles.buttonSmall),
                   ),
                 ),
                 const SizedBox(height: 8),

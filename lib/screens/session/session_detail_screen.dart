@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/session_model.dart';
@@ -183,6 +184,18 @@ class SessionDetailScreen extends StatelessWidget {
                     value: latestSession.locationAddress,
                   ),
                   const SizedBox(height: 12),
+                  // Buka titik presisi di Google Maps untuk rute/detail lokasi
+                  CustomButton(
+                    text: 'Buka di Google Maps',
+                    icon: Icons.map_outlined,
+                    isOutlined: true,
+                    onPressed: () => _openInGoogleMaps(
+                      context,
+                      latestSession.locationLatitude,
+                      latestSession.locationLongitude,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   _InfoRow(
                     icon: Icons.access_time_rounded,
                     label: 'Waktu',
@@ -196,6 +209,41 @@ class SessionDetailScreen extends StatelessWidget {
                     value:
                         '${latestSession.currentParticipants}/${latestSession.maxParticipants} orang',
                   ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    icon: Icons.timer_outlined,
+                    label: 'Batas join',
+                    value: DateFormat('dd MMM yyyy • HH:mm')
+                        .format(latestSession.joinDeadline),
+                  ),
+                  if (latestSession.isJoinClosed) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.lock_clock_rounded,
+                              size: 14, color: AppColors.error),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Pendaftaran ditutup',
+                            style: AppTextStyles.labelMedium.copyWith(
+                              color: AppColors.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   if (latestSession.description.isNotEmpty) ...[
                     const SizedBox(height: 20),
@@ -419,29 +467,39 @@ class SessionDetailScreen extends StatelessWidget {
                   ] else if (!isParticipant &&
                       !latestSession.isFull &&
                       latestSession.status == 'open') ...[
-                    CustomButton(
-                      text: 'Gabung Sesi',
-                      icon: Icons.group_add_rounded,
-                      onPressed: () async {
-                        final ok = await sessionProvider.joinSession(
-                            sessionId: latestSession.sessionId,
-                            userId: currentUserId);
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(ok
-                                ? 'Berhasil bergabung ke sesi'
-                                : sessionProvider.error ?? 'Gagal bergabung ke sesi'),
-                            backgroundColor:
-                                ok ? AppColors.success : AppColors.error,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                    if (latestSession.isJoinClosed)
+                      CustomButton(
+                        text: 'Pendaftaran Ditutup',
+                        icon: Icons.lock_clock_rounded,
+                        isOutlined: true,
+                        backgroundColor: AppColors.textTertiary,
+                        textColor: AppColors.textTertiary,
+                        onPressed: () {},
+                      )
+                    else
+                      CustomButton(
+                        text: 'Gabung Sesi',
+                        icon: Icons.group_add_rounded,
+                        onPressed: () async {
+                          final ok = await sessionProvider.joinSession(
+                              sessionId: latestSession.sessionId,
+                              userId: currentUserId);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(ok
+                                  ? 'Berhasil bergabung ke sesi'
+                                  : sessionProvider.error ?? 'Gagal bergabung ke sesi'),
+                              backgroundColor:
+                                  ok ? AppColors.success : AppColors.error,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
                   ] else if (isCompleted && isParticipant) ...[
                     CustomButton(
                       text: 'Beri Rating Peserta',
@@ -465,6 +523,21 @@ class SessionDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Buka koordinat presisi sesi di Google Maps (rute / detail lokasi).
+  /// Pakai skema universal `?api=1&query=lat,lng` — koordinat, bukan nama,
+  /// jadi titiknya persis sama dengan marker.
+  Future<void> _openInGoogleMaps(
+      BuildContext context, double lat, double lng) async {
+    final uri = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak bisa membuka Google Maps')),
+      );
+    }
   }
 
   Color _getStatusColor(String status) {
