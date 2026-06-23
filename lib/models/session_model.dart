@@ -24,6 +24,7 @@ class SessionModel {
   final int maxParticipants;
   final int currentParticipants;
   final List<String> participantIds;
+  final int joinDeadlineMinutes;
 
   // Status & media
   final String status;
@@ -50,6 +51,7 @@ class SessionModel {
     required this.maxParticipants,
     required this.currentParticipants,
     required this.participantIds,
+    this.joinDeadlineMinutes = 30,
     this.status = 'open',
     this.coverImageUrl = '',
     required this.createdAt,
@@ -80,6 +82,7 @@ class SessionModel {
       maxParticipants: data['maxParticipants'] ?? 2,
       currentParticipants: data['currentParticipants'] ?? 1,
       participantIds: List<String>.from(data['participantIds'] ?? []),
+      joinDeadlineMinutes: (data['joinDeadlineMinutes'] ?? 30).toInt(),
       status: data['status'] ?? 'open',
       coverImageUrl: data['coverImageUrl'] ?? '',
       createdAt: data['createdAt'] != null
@@ -113,6 +116,7 @@ class SessionModel {
       'maxParticipants': maxParticipants,
       'currentParticipants': currentParticipants,
       'participantIds': participantIds,
+      'joinDeadlineMinutes': joinDeadlineMinutes,
       'status': status,
       'coverImageUrl': coverImageUrl,
     };
@@ -123,6 +127,7 @@ class SessionModel {
     String? description,
     int? currentParticipants,
     List<String>? participantIds,
+    int? joinDeadlineMinutes,
     String? status,
     DateTime? updatedAt,
     DateTime? completedAt,
@@ -143,6 +148,7 @@ class SessionModel {
       maxParticipants: maxParticipants,
       currentParticipants: currentParticipants ?? this.currentParticipants,
       participantIds: participantIds ?? this.participantIds,
+      joinDeadlineMinutes: joinDeadlineMinutes ?? this.joinDeadlineMinutes,
       status: status ?? this.status,
       coverImageUrl: coverImageUrl,
       createdAt: createdAt,
@@ -153,4 +159,8 @@ class SessionModel {
 
   bool get isFull => currentParticipants >= maxParticipants;
   int get availableSeats => maxParticipants - currentParticipants;
+
+  DateTime get joinDeadline =>
+      scheduledAt.subtract(Duration(minutes: joinDeadlineMinutes));
+  bool get isJoinClosed => DateTime.now().isAfter(joinDeadline);
 }

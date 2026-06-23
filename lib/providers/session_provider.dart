@@ -127,6 +127,7 @@ class SessionProvider extends ChangeNotifier {
     required DateTime scheduledAt,
     required int maxParticipants,
     int durationMinutes = 60,
+    int joinDeadlineMinutes = 30,
     String coverImageUrl = '',
   }) async {
     _isLoading = true;
@@ -147,6 +148,7 @@ class SessionProvider extends ChangeNotifier {
         scheduledAt: scheduledAt,
         maxParticipants: maxParticipants,
         durationMinutes: durationMinutes,
+        joinDeadlineMinutes: joinDeadlineMinutes,
         coverImageUrl: coverImageUrl,
       );
       return sessionId;
