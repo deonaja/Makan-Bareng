@@ -60,7 +60,11 @@ class ReviewService {
         // Hitung averageRating baru secara incremental
         // newAvg = (oldAvg * oldCount + newRating) / newCount
         final newTotal = currentTotal + 1;
-        final newAvg = ((currentAvg * currentTotal) + rating) / newTotal;
+        // Clamp ke [1.0, 5.0] — guard kalau data user lama punya averageRating
+        // korup (mis. 0.0 padahal totalReviews > 0). Tanpa clamp, newAvg bisa
+        // jatuh < 1 dan melanggar rule averageRating >= 1 → permission-denied.
+        final newAvg =
+            (((currentAvg * currentTotal) + rating) / newTotal).clamp(1.0, 5.0);
 
         // 1. Buat review document baru
         transaction.set(newReviewRef, {
@@ -82,6 +86,7 @@ class ReviewService {
         transaction.update(revieweeRef, {
           'averageRating': double.parse(newAvg.toStringAsFixed(1)),
           'totalReviews': newTotal,
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       });
     } catch (e) {
