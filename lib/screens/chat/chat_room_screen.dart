@@ -429,11 +429,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             ),
             child: Row(
               children: [
-                IconButton(
-                  icon: Icon(Icons.add_circle_outline_rounded,
-                      color: AppColors.textTertiary),
-                  onPressed: () {},
-                ),
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
